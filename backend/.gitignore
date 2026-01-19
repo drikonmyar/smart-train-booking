@@ -1,0 +1,36 @@
+# Maven / Gradle build folders
+/target/
+/build/
+
+# IntelliJ IDEA
+/.idea/
+/*.iml
+/out/
+
+# Eclipse
+/.classpath
+/.project
+/.settings/
+
+# VS Code
+/.vscode/
+
+# Mac OS
+.DS_Store
+
+# Logs
+/logs/
+/*.log
+
+# Environment / secrets
+.env
+
+# Spring Boot specific
+spring-boot-devtools.properties
+
+# Optional: if you have Eclipse Tomcat or other server
+/.settings/
+/*.launch
+
+# Optional: node_modules if you ever add frontend here
+/frontend/node_modules/
