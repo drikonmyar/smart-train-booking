@@ -3,7 +3,9 @@ package com.booking.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.Set;
 
 @Entity
 @Table(name = "trains")
@@ -36,5 +38,14 @@ public class Train extends BaseEntity {
 
     @Column(nullable = false)
     private Integer totalSeats;
+
+    @ElementCollection(targetClass = DayOfWeek.class)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(
+            name = "train_running_days",
+            joinColumns = @JoinColumn(name = "train_id")
+    )
+    @Column(name = "day")
+    private Set<DayOfWeek> runningDays;
 
 }
