@@ -2,6 +2,7 @@ package com.booking.controller;
 
 import com.booking.dto.CreateTrainRequest;
 import com.booking.dto.SearchTrainRequest;
+import com.booking.dto.TrainSearchResponse;
 import com.booking.entity.Train;
 import com.booking.service.TrainService;
 import lombok.RequiredArgsConstructor;
@@ -24,15 +25,14 @@ public class TrainController {
         return new ResponseEntity<>(train, HttpStatus.CREATED);
     }
 
-    @PostMapping("/bulkcreate")
+    @PostMapping("/bulkcreate   ")
     public ResponseEntity<List<Long>> createMultipleTrains(@RequestBody List<CreateTrainRequest> requests) {
         List<Long> trainIds = trainService.createMultipleTrains(requests);
         return ResponseEntity.status(201).body(trainIds);
     }
 
     @PostMapping("/search")
-    public ResponseEntity<List<Train>> searchTrains(@RequestBody SearchTrainRequest request) {
-        List<Train> trains = trainService.searchTrains(request);
-        return ResponseEntity.ok(trains);
+    public ResponseEntity<List<TrainSearchResponse>> searchTrains(@RequestBody SearchTrainRequest request) {
+        return ResponseEntity.ok(trainService.searchTrains(request));
     }
 }

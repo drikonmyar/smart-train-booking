@@ -10,7 +10,6 @@ import java.util.Optional;
 public interface TrainSeatAvailabilityRepository
         extends JpaRepository<TrainSeatAvailability, Long> {
 
-    Optional<TrainSeatAvailability> findByTrainAndTravelDate(
-            Train train, LocalDate travelDate
-    );
+    Optional<TrainSeatAvailability>
+    findByTrainAndTravelDate(Train train, LocalDate travelDate);
 }
