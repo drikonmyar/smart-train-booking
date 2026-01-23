@@ -1,5 +1,6 @@
 package com.booking.service.impl;
 
+import com.booking.dto.BookingHistoryResponse;
 import com.booking.dto.BookingResponse;
 import com.booking.dto.CreateBookingRequest;
 import com.booking.entity.Booking;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -83,5 +86,69 @@ public class BookingServiceImpl implements BookingService {
         response.setStatus(booking.getStatus());
 
         return response;
+    }
+
+    @Override
+    public List<BookingHistoryResponse> getBookingHistory(Long userId) {
+
+        List<Booking> bookings =
+                bookingRepository.findByUserIdOrderByCreatedAtDesc(userId);
+
+        return bookings.stream()
+                .map(this::mapToBookingHistoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    private BookingHistoryResponse mapToBookingHistoryResponse(Booking booking) {
+
+        BookingHistoryResponse response = new BookingHistoryResponse();
+
+        response.setBookingId(booking.getId());
+        response.setTravelDate(booking.getTravelDate());
+        response.setSeatsBooked(booking.getSeatsBooked());
+        response.setStatus(booking.getStatus());
+        response.setCreatedAt(booking.getCreatedAt());
+
+        response.setTrainNumber(booking.getTrain().getTrainNumber());
+        response.setTrainName(booking.getTrain().getTrainName());
+
+        response.setSourceStation(
+                booking.getTrain().getSourceStation().getName()
+        );
+        response.setDestinationStation(
+                booking.getTrain().getDestinationStation().getName()
+        );
+
+        return response;
+    }
+
+    @Transactional
+    @Override
+    public void cancelBooking(Long bookingId) {
+
+        Booking booking = bookingRepository
+                .findByIdAndStatus(bookingId, "BOOKED")
+                .orElseThrow(() ->
+                        new RuntimeException("Booking not found or already cancelled")
+                );
+
+        booking.setStatus("CANCELLED");
+
+        TrainSeatAvailability availability =
+                availabilityRepository
+                        .findByTrainAndTravelDate(
+                                booking.getTrain(),
+                                booking.getTravelDate()
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException("Seat availability not found")
+                        );
+
+        availability.setAvailableSeats(
+                availability.getAvailableSeats() + booking.getSeatsBooked()
+        );
+
+        bookingRepository.save(booking);
+        availabilityRepository.save(availability);
     }
 }

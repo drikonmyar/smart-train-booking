@@ -1,6 +1,7 @@
 package com.booking.service.impl;
 
 import com.booking.dto.CreateStationRequest;
+import com.booking.dto.StationResponse;
 import com.booking.entity.Station;
 import com.booking.repository.StationRepository;
 import com.booking.service.StationService;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,5 +43,21 @@ public class StationServiceImpl implements StationService {
 
         // return IDs of created stations
         return savedStations.stream().map(Station::getId).toList();
+    }
+
+    @Override
+    public List<StationResponse> getAllStations() {
+        return stationRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    private StationResponse mapToResponse(Station station) {
+        StationResponse response = new StationResponse();
+        response.setId(station.getId());
+        response.setName(station.getName());
+        response.setCode(station.getCode());
+        return response;
     }
 }

@@ -1,6 +1,7 @@
 package com.booking.controller;
 
 import com.booking.dto.CreateStationRequest;
+import com.booking.dto.StationResponse;
 import com.booking.entity.Station;
 import com.booking.service.StationService;
 import lombok.RequiredArgsConstructor;
@@ -29,5 +30,10 @@ public class StationController {
     public ResponseEntity<List<Long>> createMultipleStations(@RequestBody List<CreateStationRequest> requests) {
         List<Long> stationIds = stationService.createMultipleStations(requests);
         return ResponseEntity.status(201).body(stationIds);
+    }
+
+    @GetMapping("/getall")
+    public ResponseEntity<List<StationResponse>> getAllStations() {
+        return ResponseEntity.ok(stationService.getAllStations());
     }
 }
