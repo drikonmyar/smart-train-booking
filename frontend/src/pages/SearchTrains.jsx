@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useUser } from '../context/UserContext';
 
 export default function SearchTrains() {
     const [form, setForm] = useState({
@@ -36,6 +37,8 @@ export default function SearchTrains() {
         }
     };
 
+    const formatDate = (date) => date.toLocaleDateString('en-CA');
+
     const handleDateChange = (date) => {
         setForm({ ...form, travelDate: date });
     };
@@ -48,7 +51,7 @@ export default function SearchTrains() {
         try {
             const payload = {
                 ...form,
-                travelDate: form.travelDate ? form.travelDate.toISOString().split('T')[0] : ''
+                travelDate: form.travelDate ? formatDate(form.travelDate) : ''
             };
             const response = await fetch('/api/trains/search', {
                 method: 'POST',
@@ -65,6 +68,36 @@ export default function SearchTrains() {
             setError('Network error.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const { user } = useUser();
+    const handleBook = async (train) => {
+        if (!user) {
+            alert('Please login to book a train');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/bookings/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    trainId: train.trainId,
+                    travelDate: formatDate(form.travelDate),
+                    seatsBooked: 1
+                })
+            });
+
+            if (response.ok) {
+                alert('Train booked successfully');
+            } else {
+                const err = await response.text();
+                alert(err || 'Booking failed');
+            }
+        } catch (err) {
+            alert('Server error while booking');
         }
     };
 
@@ -156,7 +189,13 @@ export default function SearchTrains() {
                                         <td>{train.sourceStation} <br /><small className="text-muted">{train.departureTime}</small></td>
                                         <td>{train.destinationStation} <br /><small className="text-muted">{train.arrivalTime}</small></td>
                                         <td>{train.seatsRemaining}</td>
-                                        <td><button className="btn btn-success btn-sm">Book Now</button></td>
+                                        <td><button
+                                            className="btn btn-success btn-sm"
+                                            onClick={() => handleBook(train)}
+                                            disabled={train.seatsRemaining <= 0}
+                                        >
+                                            Book Now
+                                        </button></td>
                                     </tr>
                                 ))}
                             </tbody>
