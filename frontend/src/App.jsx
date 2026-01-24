@@ -1,35 +1,57 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+import { Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+function Home() {
+  return <h2 className="mt-4">Welcome to Smart Train Booking</h2>;
 }
 
-export default App
+function Login() {
+  return <h2 className="mt-4">Login Page</h2>;
+}
+
+function Register() {
+  return <h2 className="mt-4">Register Page</h2>;
+}
+
+function SearchTrains() {
+  return <h2 className="mt-4">Search Trains Page</h2>;
+}
+
+function Stations() {
+  return <h2 className="mt-4">Stations Management Page</h2>;
+}
+
+function Trains() {
+  return <h2 className="mt-4">Trains Management Page</h2>;
+}
+
+function Bookings() {
+  return <h2 className="mt-4">Bookings Page</h2>;
+}
+
+function MyBookings() {
+  return <h2 className="mt-4">My Bookings Page</h2>;
+}
+
+function App() {
+  return (
+    <>
+      <Navbar />
+      <div className="container" style={{ paddingTop: '2rem' }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/search-trains" element={<SearchTrains />} />
+          <Route path="/stations" element={<Stations />} />
+          <Route path="/trains" element={<Trains />} />
+          <Route path="/bookings" element={<Bookings />} />
+          <Route path="/my-bookings" element={<MyBookings />} />
+        </Routes>
+      </div>
+    </>
+  );
+}
+
+export default App;
