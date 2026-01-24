@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function Register() {
     const [form, setForm] = useState({
@@ -14,10 +14,35 @@ export default function Register() {
         setForm({ ...form, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const navigate = useNavigate();
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // TODO: Add register logic here
-        alert(`Registered!\n${JSON.stringify(form, null, 2)}`);
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            const response = await fetch('http://localhost:5173/api/users/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form)
+            });
+            if (response.ok) {
+                setSuccess('Registration successful! Redirecting to login...');
+                setTimeout(() => navigate('/login'), 1500);
+            } else {
+                const data = await response.json().catch(() => ({}));
+                setError(data.message || 'Registration failed.');
+            }
+        } catch (err) {
+            setError('Network error. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -37,6 +62,8 @@ export default function Register() {
                 <div className="card-body">
                     <h3 className="card-title mb-4 text-center">Register</h3>
                     <form onSubmit={handleSubmit}>
+                        {error && <div className="alert alert-danger py-2">{error}</div>}
+                        {success && <div className="alert alert-success py-2">{success}</div>}
                         <div className="mb-3">
                             <label htmlFor="fullName" className="form-label">Full Name</label>
                             <input
@@ -97,7 +124,9 @@ export default function Register() {
                                 required
                             />
                         </div>
-                        <button type="submit" className="btn btn-primary w-100">Register</button>
+                        <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                            {loading ? 'Registering...' : 'Register'}
+                        </button>
                     </form>
                     <div className="mt-3 text-center">
                         <span>Already have an account? </span>
