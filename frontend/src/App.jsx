@@ -3,8 +3,10 @@
 import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 
+
 import Login from './pages/Login';
 import Register from './pages/Register';
+import SearchTrains from './pages/SearchTrains';
 
 function Home() {
   return <h2 className="mt-4">Welcome to Smart Train Booking</h2>;
@@ -14,9 +16,7 @@ function Home() {
 
 
 
-function SearchTrains() {
-  return <h2 className="mt-4">Search Trains Page</h2>;
-}
+
 
 function Stations() {
   return <h2 className="mt-4">Stations Management Page</h2>;
