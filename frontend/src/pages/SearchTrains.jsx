@@ -11,9 +11,29 @@ export default function SearchTrains() {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [stations, setStations] = useState([]);
+    const [stationsLoading, setStationsLoading] = useState(false);
+    const [stationsLoaded, setStationsLoaded] = useState(false);
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
+    };
+
+    const fetchStations = async () => {
+        if (stationsLoaded || stationsLoading) return;
+        setStationsLoading(true);
+        try {
+            const response = await fetch('/api/stations/getall');
+            if (response.ok) {
+                const data = await response.json();
+                setStations(Array.isArray(data) ? data : []);
+                setStationsLoaded(true);
+            }
+        } catch (err) {
+            // Optionally handle error
+        } finally {
+            setStationsLoading(false);
+        }
     };
 
     const handleDateChange = (date) => {
@@ -62,11 +82,39 @@ export default function SearchTrains() {
                 <form className="row g-3 mb-4 justify-content-center" onSubmit={handleSubmit}>
                     <div className="col-md-3">
                         <label className="form-label">Source Station</label>
-                        <input type="text" className="form-control" name="sourceStationName" value={form.sourceStationName} onChange={handleChange} required />
+                        <select
+                            className="form-select"
+                            name="sourceStationName"
+                            value={form.sourceStationName}
+                            onChange={handleChange}
+                            onFocus={fetchStations}
+                            required
+                        >
+                            <option value="" disabled>Select a station</option>
+                            {stations.map(station => (
+                                <option key={station.id} value={station.name}>
+                                    {station.name} ({station.code})
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div className="col-md-3">
                         <label className="form-label">Destination Station</label>
-                        <input type="text" className="form-control" name="destinationStationName" value={form.destinationStationName} onChange={handleChange} required />
+                        <select
+                            className="form-select"
+                            name="destinationStationName"
+                            value={form.destinationStationName}
+                            onChange={handleChange}
+                            onFocus={fetchStations}
+                            required
+                        >
+                            <option value="" disabled>Select a station</option>
+                            {stations.map(station => (
+                                <option key={station.id} value={station.name}>
+                                    {station.name} ({station.code})
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div className="col-md-3">
                         <label className="form-label">Travel Date</label>
