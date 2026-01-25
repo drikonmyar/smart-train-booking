@@ -7,6 +7,7 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import SearchTrains from './pages/SearchTrains';
+import MyBookings from './pages/MyBookings';
 
 function Home() {
   return <h2 className="mt-4">Welcome to Smart Train Booking</h2>;
@@ -28,10 +29,6 @@ function Trains() {
 
 function Bookings() {
   return <h2 className="mt-4">Bookings Page</h2>;
-}
-
-function MyBookings() {
-  return <h2 className="mt-4">My Bookings Page</h2>;
 }
 
 function App() {
