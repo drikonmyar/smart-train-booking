@@ -15,6 +15,9 @@ export default function SearchTrains() {
     const [stations, setStations] = useState([]);
     const [stationsLoading, setStationsLoading] = useState(false);
     const [stationsLoaded, setStationsLoaded] = useState(false);
+    const [showBookingForm, setShowBookingForm] = useState(false);
+    const [selectedTrain, setSelectedTrain] = useState(null);
+    const [seatsBooked, setSeatsBooked] = useState(1);
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -72,31 +75,37 @@ export default function SearchTrains() {
     };
 
     const { user } = useUser();
-    const handleBook = async (train) => {
+    const openBookingForm = (train) => {
         if (!user) {
             alert('Please login to book a train');
             return;
         }
+        setSelectedTrain(train);
+        setSeatsBooked(1);
+        setShowBookingForm(true);
+    };
 
+    const confirmBooking = async () => {
         try {
             const response = await fetch('/api/bookings/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: user.id,
-                    trainId: train.trainId,
+                    trainId: selectedTrain.trainId,
                     travelDate: formatDate(form.travelDate),
-                    seatsBooked: 1
+                    seatsBooked: seatsBooked
                 })
             });
 
             if (response.ok) {
                 alert('Train booked successfully');
+                setShowBookingForm(false);
             } else {
                 const err = await response.text();
                 alert(err || 'Booking failed');
             }
-        } catch (err) {
+        } catch {
             alert('Server error while booking');
         }
     };
@@ -191,7 +200,7 @@ export default function SearchTrains() {
                                         <td>{train.seatsRemaining}</td>
                                         <td><button
                                             className="btn btn-success btn-sm"
-                                            onClick={() => handleBook(train)}
+                                            onClick={() => openBookingForm(train)}
                                             disabled={train.seatsRemaining <= 0}
                                         >
                                             Book Now
@@ -200,6 +209,63 @@ export default function SearchTrains() {
                                 ))}
                             </tbody>
                         </table>
+                        {showBookingForm && (
+                            <div
+                                className="modal fade show"
+                                style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
+                            >
+                                <div className="modal-dialog modal-dialog-centered">
+                                    <div className="modal-content">
+                                        <div className="modal-header">
+                                            <h5 className="modal-title">Book Train</h5>
+                                            <button
+                                                type="button"
+                                                className="btn-close"
+                                                onClick={() => setShowBookingForm(false)}
+                                            ></button>
+                                        </div>
+
+                                        <div className="modal-body">
+                                            <p><strong>{selectedTrain.trainName}</strong></p>
+                                            <p>
+                                                {selectedTrain.sourceStation} → {selectedTrain.destinationStation}
+                                            </p>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Number of Seats</label>
+                                                <input
+                                                    type="number"
+                                                    className="form-control"
+                                                    min="1"
+                                                    max={selectedTrain.seatsRemaining}
+                                                    value={seatsBooked}
+                                                    onChange={(e) => setSeatsBooked(Number(e.target.value))}
+                                                />
+                                                <small className="text-muted">
+                                                    Max available: {selectedTrain.seatsRemaining}
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <div className="modal-footer">
+                                            <button
+                                                className="btn btn-secondary"
+                                                onClick={() => setShowBookingForm(false)}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                className="btn btn-success"
+                                                onClick={confirmBooking}
+                                                disabled={seatsBooked < 1 || seatsBooked > selectedTrain.seatsRemaining}
+                                            >
+                                                Confirm Booking
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
