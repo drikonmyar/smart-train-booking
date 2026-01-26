@@ -36,4 +36,11 @@ public class StationController {
     public ResponseEntity<List<StationResponse>> getAllStations() {
         return ResponseEntity.ok(stationService.getAllStations());
     }
+
+    @GetMapping("/search")
+    public List<StationResponse> searchStations(
+            @RequestParam(required = false) String q
+    ) {
+        return stationService.searchStations(q);
+    }
 }

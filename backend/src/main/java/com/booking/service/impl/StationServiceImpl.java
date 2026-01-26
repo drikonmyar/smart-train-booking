@@ -53,6 +53,22 @@ public class StationServiceImpl implements StationService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<StationResponse> searchStations(String query) {
+        List<Station> stations;
+
+        if (query == null || query.trim().isEmpty()) {
+            stations = stationRepository.findAll();
+        } else {
+            stations = stationRepository
+                    .findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(query, query);
+        }
+
+        return stations.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     private StationResponse mapToResponse(Station station) {
         StationResponse response = new StationResponse();
         response.setId(station.getId());
