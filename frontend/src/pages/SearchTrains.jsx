@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useUser } from '../context/UserContext';
@@ -18,25 +18,46 @@ export default function SearchTrains() {
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [selectedTrain, setSelectedTrain] = useState(null);
     const [seatsBooked, setSeatsBooked] = useState(1);
+    const [sourceSuggestions, setSourceSuggestions] = useState([]);
+    const [destSuggestions, setDestSuggestions] = useState([]);
+    const [showSourceDropdown, setShowSourceDropdown] = useState(false);
+    const [showDestDropdown, setShowDestDropdown] = useState(false);
+    const sourceRef = useRef(null);
+    const destinationRef = useRef(null);
 
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                sourceRef.current &&
+                !sourceRef.current.contains(event.target)
+            ) {
+                setShowSourceDropdown(false);
+            }
 
-    const fetchStations = async () => {
-        if (stationsLoaded || stationsLoading) return;
-        setStationsLoading(true);
+            if (
+                destinationRef.current &&
+                !destinationRef.current.contains(event.target)
+            ) {
+                setShowDestDropdown(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    const searchStations = async (query, setter) => {
         try {
-            const response = await fetch('/api/stations/getall');
+            const response = await fetch(`/api/stations/search?q=${query || ''}`);
             if (response.ok) {
                 const data = await response.json();
-                setStations(Array.isArray(data) ? data : []);
-                setStationsLoaded(true);
+                setter(Array.isArray(data) ? data : []);
             }
-        } catch (err) {
-            // Optionally handle error
-        } finally {
-            setStationsLoading(false);
+        } catch {
+            setter([]);
         }
     };
 
@@ -122,41 +143,111 @@ export default function SearchTrains() {
             <div style={{ width: '100%', maxWidth: 900 }}>
                 <h3 className="mb-4 text-center">Search Trains</h3>
                 <form className="row g-3 mb-4 justify-content-center" onSubmit={handleSubmit}>
-                    <div className="col-md-3">
+                    <div className="col-md-3 position-relative" ref={sourceRef}>
                         <label className="form-label">Source Station</label>
-                        <select
-                            className="form-select"
-                            name="sourceStationName"
+
+                        <input
+                            type="text"
+                            className="form-control"
                             value={form.sourceStationName}
-                            onChange={handleChange}
-                            onFocus={fetchStations}
+                            placeholder="Type source station"
+                            onFocus={() => {
+                                setShowSourceDropdown(true);
+                                searchStations(form.sourceStationName, setSourceSuggestions);
+                            }}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setForm({ ...form, sourceStationName: value });
+                                setShowSourceDropdown(true);
+                                searchStations(value, setSourceSuggestions);
+                            }}
                             required
-                        >
-                            <option value="" disabled>Select a station</option>
-                            {stations.map(station => (
-                                <option key={station.id} value={station.name}>
-                                    {station.name} ({station.code})
-                                </option>
-                            ))}
-                        </select>
+                        />
+
+                        {showSourceDropdown && sourceSuggestions.length > 0 && (
+                            <ul
+                                className="dropdown-menu show w-100"
+                                style={{
+                                    maxHeight: '220px',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
+                                }}
+                            >
+                                {sourceSuggestions.map(station => (
+                                    <li key={station.id}>
+                                        <button
+                                            type="button"
+                                            className="dropdown-item text-truncate"
+                                            style={{
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: '100%'
+                                            }}
+                                            onClick={() => {
+                                                setForm({ ...form, sourceStationName: station.name });
+                                                setShowSourceDropdown(false);
+                                            }}
+                                        >
+                                            {station.name} ({station.code})
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
-                    <div className="col-md-3">
+                    <div className="col-md-3 position-relative" ref={destinationRef}>
                         <label className="form-label">Destination Station</label>
-                        <select
-                            className="form-select"
-                            name="destinationStationName"
+
+                        <input
+                            type="text"
+                            className="form-control"
                             value={form.destinationStationName}
-                            onChange={handleChange}
-                            onFocus={fetchStations}
+                            placeholder="Type destination station"
+                            onFocus={() => {
+                                setShowDestDropdown(true);
+                                searchStations(form.destinationStationName, setDestSuggestions);
+                            }}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setForm({ ...form, destinationStationName: value });
+                                setShowDestDropdown(true);
+                                searchStations(value, setDestSuggestions);
+                            }}
                             required
-                        >
-                            <option value="" disabled>Select a station</option>
-                            {stations.map(station => (
-                                <option key={station.id} value={station.name}>
-                                    {station.name} ({station.code})
-                                </option>
-                            ))}
-                        </select>
+                        />
+
+                        {showDestDropdown && destSuggestions.length > 0 && (
+                            <ul
+                                className="dropdown-menu show w-100"
+                                style={{
+                                    maxHeight: '220px',
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden'
+                                }}
+                            >
+                                {destSuggestions.map(station => (
+                                    <li key={station.id}>
+                                        <button
+                                            type="button"
+                                            className="dropdown-item text-truncate"
+                                            style={{
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: '100%'
+                                            }}
+                                            onClick={() => {
+                                                setForm({ ...form, destinationStationName: station.name });
+                                                setShowDestDropdown(false);
+                                            }}
+                                        >
+                                            {station.name} ({station.code})
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                     <div className="col-md-3">
                         <label className="form-label">Travel Date</label>
