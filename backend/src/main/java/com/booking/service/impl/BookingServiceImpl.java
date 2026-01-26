@@ -1,8 +1,6 @@
 package com.booking.service.impl;
 
-import com.booking.dto.BookingHistoryResponse;
-import com.booking.dto.BookingResponse;
-import com.booking.dto.CreateBookingRequest;
+import com.booking.dto.*;
 import com.booking.entity.Booking;
 import com.booking.entity.Train;
 import com.booking.entity.TrainSeatAvailability;
@@ -11,9 +9,11 @@ import com.booking.repository.BookingRepository;
 import com.booking.repository.TrainRepository;
 import com.booking.repository.TrainSeatAvailabilityRepository;
 import com.booking.repository.UserRepository;
+import com.booking.repository.specification.BookingSpecification;
 import com.booking.service.BookingService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -150,5 +150,35 @@ public class BookingServiceImpl implements BookingService {
 
         bookingRepository.save(booking);
         availabilityRepository.save(availability);
+    }
+
+    @Override
+    public List<AdminBookingResponse> searchBookings(AdminBookingSearchRequest request) {
+        Specification<Booking> spec = BookingSpecification.withFilters(request);
+
+        return bookingRepository.findAll(spec)
+                .stream()
+                .map(this::mapToAdminBookingResponse)
+                .toList();
+    }
+
+    private AdminBookingResponse mapToAdminBookingResponse(Booking booking) {
+        AdminBookingResponse res = new AdminBookingResponse();
+
+        res.setBookingId(booking.getId());
+
+        res.setUser(booking.getUser());
+        res.setTrain(booking.getTrain());
+
+        res.setSourceStation(booking.getTrain().getSourceStation());
+        res.setDestinationStation(booking.getTrain().getDestinationStation());
+
+        res.setTravelDate(booking.getTravelDate());
+        res.setSeatsBooked(booking.getSeatsBooked());
+        res.setStatus(booking.getStatus());
+
+        res.setBookingDate(booking.getCreatedAt());
+
+        return res;
     }
 }

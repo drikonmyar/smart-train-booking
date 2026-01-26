@@ -1,8 +1,6 @@
 package com.booking.controller;
 
-import com.booking.dto.BookingHistoryResponse;
-import com.booking.dto.BookingResponse;
-import com.booking.dto.CreateBookingRequest;
+import com.booking.dto.*;
 import com.booking.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -41,5 +39,12 @@ public class BookingController {
 
         bookingService.cancelBooking(bookingId);
         return ResponseEntity.ok("Booking cancelled successfully");
+    }
+
+    @PostMapping("/getall")
+    public List<AdminBookingResponse> searchBookings(
+            @RequestBody AdminBookingSearchRequest request) {
+
+        return bookingService.searchBookings(request);
     }
 }
