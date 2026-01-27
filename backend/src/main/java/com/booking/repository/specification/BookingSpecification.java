@@ -43,14 +43,14 @@ public class BookingSpecification {
 
             if (req.getSourceStation() != null) {
                 predicates.add(cb.equal(
-                        trainJoin.get("sourceStation"),
+                        trainJoin.get("sourceStation").get("name"),
                         req.getSourceStation()
                 ));
             }
 
             if (req.getDestinationStation() != null) {
                 predicates.add(cb.equal(
-                        trainJoin.get("destinationStation"),
+                        trainJoin.get("destinationStation").get("name"),
                         req.getDestinationStation()
                 ));
             }

@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import SearchTrains from './pages/SearchTrains';
 import MyBookings from './pages/MyBookings';
+import Bookings from './pages/Bookings';
 
 function Home() {
   return <h2 className="mt-4">Welcome to Smart Train Booking</h2>;
@@ -25,10 +26,6 @@ function Stations() {
 
 function Trains() {
   return <h2 className="mt-4">Trains Management Page</h2>;
-}
-
-function Bookings() {
-  return <h2 className="mt-4">Bookings Page</h2>;
 }
 
 function App() {
