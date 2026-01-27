@@ -12,9 +12,6 @@ export default function SearchTrains() {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [stations, setStations] = useState([]);
-    const [stationsLoading, setStationsLoading] = useState(false);
-    const [stationsLoaded, setStationsLoaded] = useState(false);
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [selectedTrain, setSelectedTrain] = useState(null);
     const [seatsBooked, setSeatsBooked] = useState(1);
