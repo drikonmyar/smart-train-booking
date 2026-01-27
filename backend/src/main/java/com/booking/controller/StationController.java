@@ -32,11 +32,6 @@ public class StationController {
         return ResponseEntity.status(201).body(stationIds);
     }
 
-    @GetMapping("/getall")
-    public ResponseEntity<List<StationResponse>> getAllStations() {
-        return ResponseEntity.ok(stationService.getAllStations());
-    }
-
     @GetMapping("/search")
     public List<StationResponse> searchStations(
             @RequestParam(required = false) String q

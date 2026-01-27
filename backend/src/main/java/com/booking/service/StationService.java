@@ -9,6 +9,5 @@ import java.util.List;
 public interface StationService {
     Station createStation(CreateStationRequest request);
     List<Long> createMultipleStations(List<CreateStationRequest> requests);
-    List<StationResponse> getAllStations();
     List<StationResponse> searchStations(String query);
 }

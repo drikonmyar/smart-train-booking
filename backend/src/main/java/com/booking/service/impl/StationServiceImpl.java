@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,14 +42,6 @@ public class StationServiceImpl implements StationService {
 
         // return IDs of created stations
         return savedStations.stream().map(Station::getId).toList();
-    }
-
-    @Override
-    public List<StationResponse> getAllStations() {
-        return stationRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
     }
 
     @Override
