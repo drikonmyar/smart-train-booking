@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const BookingsPage = () => {
     const [filters, setFilters] = useState({
-        bookingFromDate: '',
-        bookingToDate: '',
-        travelFromDate: '',
-        travelToDate: '',
+        bookingFromDate: null,
+        bookingToDate: null,
+        travelFromDate: null,
+        travelToDate: null,
         username: '',
         trainNumber: '',
         status: '',
@@ -101,23 +103,103 @@ const BookingsPage = () => {
 
                             {/* DATE FILTERS */}
                             <div className="col-md-3">
-                                <label>Booking From</label>
-                                <input type="date" name="bookingFromDate" className="form-control" onChange={handleChange} />
+                                <label className="form-label mb-1">Booking From</label>
+                                <DatePicker
+                                    selected={
+                                        filters.bookingFromDate
+                                            ? new Date(filters.bookingFromDate)
+                                            : null
+                                    }
+                                    onChange={(date) =>
+                                        setFilters(prev => ({
+                                            ...prev,
+                                            bookingFromDate: date
+                                                ? date.toLocaleDateString('en-CA') // yyyy-MM-dd
+                                                : ''
+                                        }))
+                                    }
+                                    className="form-control w-100"
+                                    wrapperClassName="w-100"
+                                    dateFormat="yyyy-MM-dd"
+                                    placeholderText="Select date"
+                                    maxDate={filters.bookingToDate}
+                                    isClearable
+                                />
                             </div>
 
                             <div className="col-md-3">
-                                <label>Booking To</label>
-                                <input type="date" name="bookingToDate" className="form-control" onChange={handleChange} />
+                                <label className="form-label mb-1">Booking To</label>
+                                <DatePicker
+                                    selected={
+                                        filters.bookingToDate
+                                            ? new Date(filters.bookingToDate)
+                                            : null
+                                    }
+                                    onChange={(date) =>
+                                        setFilters(prev => ({
+                                            ...prev,
+                                            bookingToDate: date
+                                                ? date.toLocaleDateString('en-CA') // yyyy-MM-dd
+                                                : ''
+                                        }))
+                                    }
+                                    className="form-control w-100"
+                                    wrapperClassName="w-100"
+                                    dateFormat="yyyy-MM-dd"
+                                    placeholderText="Select date"
+                                    minDate={filters.bookingFromDate}
+                                    isClearable
+                                />
                             </div>
 
                             <div className="col-md-3">
-                                <label>Travel From</label>
-                                <input type="date" name="travelFromDate" className="form-control" onChange={handleChange} />
+                                <label className="form-label mb-1">Travel From</label>
+                                <DatePicker
+                                    selected={
+                                        filters.travelFromDate
+                                            ? new Date(filters.travelFromDate)
+                                            : null
+                                    }
+                                    onChange={(date) =>
+                                        setFilters(prev => ({
+                                            ...prev,
+                                            travelFromDate: date
+                                                ? date.toLocaleDateString('en-CA') // yyyy-MM-dd
+                                                : ''
+                                        }))
+                                    }
+                                    className="form-control w-100"
+                                    wrapperClassName="w-100"
+                                    dateFormat="yyyy-MM-dd"
+                                    placeholderText="Select date"
+                                    maxDate={filters.travelToDate}
+                                    isClearable
+                                />
                             </div>
 
                             <div className="col-md-3">
-                                <label>Travel To</label>
-                                <input type="date" name="travelToDate" className="form-control" onChange={handleChange} />
+                                <label className="form-label mb-1">Travel To</label>
+                                <DatePicker
+                                    selected={
+                                        filters.travelToDate
+                                            ? new Date(filters.travelToDate)
+                                            : null
+                                    }
+                                    onChange={(date) =>
+                                        setFilters(prev => ({
+                                            ...prev,
+                                            travelToDate: date
+                                                ? date.toLocaleDateString('en-CA') // yyyy-MM-dd
+                                                : ''
+                                        }))
+                                    }
+                                    className="form-control w-100"
+                                    wrapperClassName="w-100"
+                                    dateFormat="yyyy-MM-dd"
+                                    placeholderText="Select date"
+                                    minDate={filters.travelFromDate}
+                                    isClearable
+                                />
                             </div>
 
                             {/* SOURCE STATION */}
