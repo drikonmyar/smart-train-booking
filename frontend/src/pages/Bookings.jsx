@@ -75,6 +75,23 @@ const BookingsPage = () => {
         }
     };
 
+    const formatBookingDate = (dateStr) => {
+        const date = new Date(dateStr);
+
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+
+        const time = date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+
+        return `${yyyy}-${mm}-${dd} ${time}`;
+    };
+
     /* --------- CLOSE DROPDOWNS ON OUTSIDE CLICK --------- */
 
     useEffect(() => {
@@ -384,7 +401,7 @@ const BookingsPage = () => {
                                             <td>{b.travelDate}</td>
                                             <td>{b.seatsBooked}</td>
                                             <td>{b.status}</td>
-                                            <td>{new Date(b.bookingDate).toLocaleString()}</td>
+                                            <td>{formatBookingDate(b.bookingDate)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

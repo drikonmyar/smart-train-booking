@@ -27,6 +27,23 @@ export default function MyBookings() {
         }
     };
 
+    const formatBookingDate = (dateStr) => {
+        const date = new Date(dateStr);
+
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+
+        const time = date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+
+        return `${yyyy}-${mm}-${dd} ${time}`;
+    };
+
     useEffect(() => {
         fetchBookings();
     }, [user]);
@@ -108,13 +125,13 @@ export default function MyBookings() {
                                         <td>{b.seatsBooked}</td>
                                         <td>
                                             <span className={`badge ${b.status === 'CANCELLED'
-                                                    ? 'bg-danger'
-                                                    : 'bg-success'
+                                                ? 'bg-danger'
+                                                : 'bg-success'
                                                 }`}>
                                                 {b.status}
                                             </span>
                                         </td>
-                                        <td>{new Date(b.createdAt).toLocaleString()}</td>
+                                        <td>{formatBookingDate(b.createdAt)}</td>
                                         <td>
                                             <button
                                                 className="btn btn-sm btn-danger"
