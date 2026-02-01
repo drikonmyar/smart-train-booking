@@ -2,6 +2,7 @@ package com.booking.service.impl;
 
 import com.booking.dto.CreateStationRequest;
 import com.booking.dto.StationResponse;
+import com.booking.dto.UpdateStationRequest;
 import com.booking.entity.Station;
 import com.booking.repository.StationRepository;
 import com.booking.service.StationService;
@@ -58,6 +59,24 @@ public class StationServiceImpl implements StationService {
         return stations.stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    @Override
+    public Station updateStation(Long id, UpdateStationRequest request) {
+        Station station = stationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Station not found with id: " + id));
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            station.setName(request.getName());
+        }
+
+        if (request.getCode() != null && !request.getCode().isBlank()) {
+            station.setCode(request.getCode().toUpperCase());
+        }
+
+//        station.setModifiedDate(LocalDateTime.now());
+
+        return stationRepository.save(station);
     }
 
     private StationResponse mapToResponse(Station station) {

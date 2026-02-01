@@ -2,6 +2,7 @@ package com.booking.controller;
 
 import com.booking.dto.CreateStationRequest;
 import com.booking.dto.StationResponse;
+import com.booking.dto.UpdateStationRequest;
 import com.booking.entity.Station;
 import com.booking.service.StationService;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,14 @@ public class StationController {
             @RequestParam(required = false) String q
     ) {
         return stationService.searchStations(q);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Station> updateStation(
+            @PathVariable Long id,
+            @RequestBody UpdateStationRequest request
+    ) {
+        Station updatedStation = stationService.updateStation(id, request);
+        return ResponseEntity.ok(updatedStation);
     }
 }
