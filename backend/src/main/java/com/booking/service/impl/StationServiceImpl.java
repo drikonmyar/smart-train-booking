@@ -65,6 +65,8 @@ public class StationServiceImpl implements StationService {
         response.setId(station.getId());
         response.setName(station.getName());
         response.setCode(station.getCode());
+        response.setCreatedAt(station.getCreatedAt());
+        response.setModifiedDate(station.getModifiedAt());
         return response;
     }
 }
