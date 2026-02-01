@@ -62,6 +62,39 @@ const StationsPage = () => {
         }
     };
 
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingStation, setEditingStation] = useState(null);
+    const [editForm, setEditForm] = useState({
+        name: '',
+        code: ''
+    });
+
+    const updateStation = async () => {
+        if (!editForm.name || !editForm.code) {
+            alert('Station name and code are required');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/stations/${editingStation.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editForm)
+            });
+
+            if (!res.ok) {
+                throw new Error('Update failed');
+            }
+
+            setShowEditModal(false);
+            setEditingStation(null);
+            fetchStations(query);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update station');
+        }
+    };
+
     return (
         <div style={{
             minHeight: '90vh',
@@ -148,6 +181,7 @@ const StationsPage = () => {
                                 <th>Code</th>
                                 <th>Created At</th>
                                 <th>Modified At</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -179,13 +213,89 @@ const StationsPage = () => {
                                                 .slice(0, 19)
                                                 .replace('T', ' ')}
                                         </td>
+                                        <td className="text-center">
+                                            <button
+                                                className="btn btn-sm btn-outline-primary"
+                                                onClick={() => {
+                                                    setEditingStation(s);
+                                                    setEditForm({ name: s.name, code: s.code });
+                                                    setShowEditModal(true);
+                                                }}
+                                            >
+                                                ✏️
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
+                {showEditModal && (
+                    <div
+                        className="modal fade show d-block"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    >
+                        <div className="modal-dialog modal-dialog-centered">
+                            <div className="modal-content">
 
+                                <div className="modal-header">
+                                    <h5 className="modal-title">Edit Station</h5>
+                                    <button
+                                        className="btn-close"
+                                        onClick={() => setShowEditModal(false)}
+                                    />
+                                </div>
+
+                                <div className="modal-body">
+                                    <div className="mb-3">
+                                        <label className="form-label">Station Name</label>
+                                        <input
+                                            className="form-control"
+                                            value={editForm.name}
+                                            onChange={(e) =>
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    name: e.target.value
+                                                }))
+                                            }
+                                        />
+                                    </div>
+
+                                    <div className="mb-3">
+                                        <label className="form-label">Station Code</label>
+                                        <input
+                                            className="form-control"
+                                            value={editForm.code}
+                                            onChange={(e) =>
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    code: e.target.value.toUpperCase()
+                                                }))
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="modal-footer">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowEditModal(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={updateStation}
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
