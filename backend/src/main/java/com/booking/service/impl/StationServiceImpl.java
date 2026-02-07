@@ -9,6 +9,9 @@ import com.booking.service.StationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,19 +49,41 @@ public class StationServiceImpl implements StationService {
     }
 
     @Override
-    public List<StationResponse> searchStations(String query) {
-        List<Station> stations;
+    public List<StationResponse> searchStations(String query, LocalDate createdFrom, LocalDate createdTo, LocalDate modifiedFrom, LocalDate modifiedTo) {
+        String q = (query == null || query.trim().isEmpty()) ? null : query.trim();
 
-        if (query == null || query.trim().isEmpty()) {
-            stations = stationRepository.findAll();
-        } else {
-            stations = stationRepository
-                    .findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(query, query);
+        // Normalize date ranges
+        if (createdFrom != null && createdTo != null && createdFrom.isAfter(createdTo)) {
+            LocalDate temp = createdFrom;
+            createdFrom = createdTo;
+            createdTo = temp;
         }
+
+        if (modifiedFrom != null && modifiedTo != null && modifiedFrom.isAfter(modifiedTo)) {
+            LocalDate temp = modifiedFrom;
+            modifiedFrom = modifiedTo;
+            modifiedTo = temp;
+        }
+
+        List<Station> stations = stationRepository.searchStations(
+                q,
+                toStartOfDay(createdFrom),
+                toEndOfDay(createdTo),
+                toStartOfDay(modifiedFrom),
+                toEndOfDay(modifiedTo)
+        );
 
         return stations.stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    private LocalDateTime toStartOfDay(LocalDate date) {
+        return date != null ? date.atStartOfDay() : null;
+    }
+
+    private LocalDateTime toEndOfDay(LocalDate date) {
+        return date != null ? date.atTime(LocalTime.MAX) : null;
     }
 
     @Override

@@ -1,25 +1,63 @@
 import React, { useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const StationsPage = () => {
     const [query, setQuery] = useState('');
     const [stations, setStations] = useState([]);
+    const [filteredStations, setFilteredStations] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    const [newStation, setNewStation] = useState({
-        name: '',
-        code: ''
-    });
-
+    const [newStation, setNewStation] = useState({ name: '', code: '' });
     const [creating, setCreating] = useState(false);
+
+    /* -------- DATE FILTERS -------- */
+    const [createdFrom, setCreatedFrom] = useState(null);
+    const [createdTo, setCreatedTo] = useState(null);
+    const [modifiedFrom, setModifiedFrom] = useState(null);
+    const [modifiedTo, setModifiedTo] = useState(null);
+
+    const formatDateParam = (date) => {
+        if (!date) return null;
+
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+
+        return `${y}-${m}-${d}`;
+    };
+
+    const formatDateTime = (value) => {
+        if (!value) return '-';
+        const d = new Date(value);
+        if (isNaN(d)) return '-';
+        return d.toISOString().slice(0, 19).replace('T', ' ');
+    };
 
     /* ---------------- FETCH STATIONS ---------------- */
 
-    const fetchStations = async (q = '') => {
+    const fetchStations = async (
+        q = query,
+        cf = createdFrom,
+        ct = createdTo,
+        mf = modifiedFrom,
+        mt = modifiedTo
+    ) => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/stations/search?q=${q}`);
+            const params = new URLSearchParams();
+
+            if (q) params.append('q', q);
+            if (cf) params.append('createdFrom', formatDateParam(cf));
+            if (ct) params.append('createdTo', formatDateParam(ct));
+            if (mf) params.append('modifiedFrom', formatDateParam(mf));
+            if (mt) params.append('modifiedTo', formatDateParam(mt));
+
+            const res = await fetch(`/api/stations/search?${params.toString()}`);
             const data = await res.json();
+
             setStations(data);
+            setFilteredStations(data);
         } catch (err) {
             console.error('Failed to fetch stations', err);
         } finally {
@@ -27,10 +65,15 @@ const StationsPage = () => {
         }
     };
 
-    /* Load all stations initially */
     useEffect(() => {
         fetchStations();
     }, []);
+
+    /* ---------------- FILTER LOGIC ---------------- */
+
+    useEffect(() => {
+        fetchStations();
+    }, [query, createdFrom, createdTo, modifiedFrom, modifiedTo]);
 
     /* ---------------- CREATE STATION ---------------- */
 
@@ -48,26 +91,22 @@ const StationsPage = () => {
                 body: JSON.stringify(newStation)
             });
 
-            if (!res.ok) {
-                throw new Error('Create failed');
-            }
+            if (!res.ok) throw new Error();
 
             setNewStation({ name: '', code: '' });
-            fetchStations(query); // refresh list
-        } catch (err) {
-            console.error('Failed to create station', err);
+            fetchStations(query);
+        } catch {
             alert('Failed to create station');
         } finally {
             setCreating(false);
         }
     };
 
+    /* ---------------- EDIT ---------------- */
+
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingStation, setEditingStation] = useState(null);
-    const [editForm, setEditForm] = useState({
-        name: '',
-        code: ''
-    });
+    const [editForm, setEditForm] = useState({ name: '', code: '' });
 
     const updateStation = async () => {
         if (!editForm.name || !editForm.code) {
@@ -82,15 +121,11 @@ const StationsPage = () => {
                 body: JSON.stringify(editForm)
             });
 
-            if (!res.ok) {
-                throw new Error('Update failed');
-            }
+            if (!res.ok) throw new Error();
 
             setShowEditModal(false);
-            setEditingStation(null);
             fetchStations(query);
-        } catch (err) {
-            console.error(err);
+        } catch {
             alert('Failed to update station');
         }
     };
@@ -100,119 +135,143 @@ const StationsPage = () => {
             minHeight: '90vh',
             width: '100vw',
             display: 'flex',
-            alignItems: 'center',
             justifyContent: 'center',
             background: '#f8f9fa',
+            paddingTop: 30
         }}>
-            <div style={{ width: '100%', maxWidth: 900 }}>
+            <div style={{ width: '100%', maxWidth: 1000 }}>
+
                 <h3 className="mb-4 text-center">Station Management</h3>
 
-                {/* ---------- SEARCH ---------- */}
+                {/* ---------- SEARCH & DATE FILTERS ---------- */}
                 <div className="card p-3 mb-4">
-                    <label className="mb-1">Search Station</label>
-                    <input
-                        className="form-control"
-                        placeholder="Type station name or code"
-                        value={query}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            setQuery(val);
-                            fetchStations(val);
-                        }}
-                    />
+                    <h5 className="mb-3">Search Station</h5>
+
+                    <div className="row g-3 align-items-end">
+
+                        {/* Text Search */}
+                        <div className="col-md-4">
+                            <label className="form-label">Station Name or Code</label>
+                            <input
+                                className="form-control"
+                                placeholder="Type station name or code"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Created From */}
+                        <div className="col-md-2">
+                            <label className="form-label">Created From</label>
+                            <DatePicker
+                                selected={createdFrom}
+                                onChange={setCreatedFrom}
+                                className="form-control"
+                                dateFormat="yyyy-MM-dd"
+                                placeholderText="From"
+                            />
+                        </div>
+
+                        {/* Created To */}
+                        <div className="col-md-2">
+                            <label className="form-label">Created To</label>
+                            <DatePicker
+                                selected={createdTo}
+                                onChange={setCreatedTo}
+                                className="form-control"
+                                dateFormat="yyyy-MM-dd"
+                                placeholderText="To"
+                            />
+                        </div>
+
+                        {/* Modified From */}
+                        <div className="col-md-2">
+                            <label className="form-label">Modified From</label>
+                            <DatePicker
+                                selected={modifiedFrom}
+                                onChange={setModifiedFrom}
+                                className="form-control"
+                                dateFormat="yyyy-MM-dd"
+                                placeholderText="From"
+                            />
+                        </div>
+
+                        {/* Modified To */}
+                        <div className="col-md-2">
+                            <label className="form-label">Modified To</label>
+                            <DatePicker
+                                selected={modifiedTo}
+                                onChange={setModifiedTo}
+                                className="form-control"
+                                dateFormat="yyyy-MM-dd"
+                                placeholderText="To"
+                            />
+                        </div>
+
+                    </div>
                 </div>
 
-                {/* ---------- CREATE STATION ---------- */}
+                {/* -------- CREATE -------- */}
                 <div className="card p-3 mb-4">
-                    <h5 className="mb-3">Create New Station</h5>
-
+                    <h5>Create New Station</h5>
                     <div className="row g-3">
                         <div className="col-md-6">
-                            <label>Station Name</label>
+                            <label>Name</label>
                             <input
                                 className="form-control"
                                 value={newStation.name}
-                                onChange={(e) =>
-                                    setNewStation(prev => ({ ...prev, name: e.target.value }))
-                                }
+                                onChange={e => setNewStation(p => ({ ...p, name: e.target.value }))}
                             />
                         </div>
-
                         <div className="col-md-4">
-                            <label>Station Code</label>
+                            <label>Code</label>
                             <input
                                 className="form-control"
                                 value={newStation.code}
-                                onChange={(e) =>
-                                    setNewStation(prev => ({
-                                        ...prev,
-                                        code: e.target.value.toUpperCase()
-                                    }))
-                                }
+                                onChange={e => setNewStation(p => ({
+                                    ...p,
+                                    code: e.target.value.toUpperCase()
+                                }))}
                             />
                         </div>
-
                         <div className="col-md-2 d-flex align-items-end">
                             <button
                                 className="btn btn-success w-100"
                                 onClick={createStation}
                                 disabled={creating}
                             >
-                                {creating ? 'Creating...' : 'Create'}
+                                Create
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* ---------- TABLE ---------- */}
-                <div
-                    style={{
-                        maxHeight: 400,
-                        overflow: 'auto',
-                        border: '1px solid #ddd',
-                        borderRadius: 6
-                    }}
-                >
-                    <table className="table table-bordered table-striped mb-0">
-                        <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
+                {/* -------- TABLE -------- */}
+                <div style={{ maxHeight: 420, overflow: 'auto' }}>
+                    <table className="table table-bordered table-striped">
+                        <thead className="table-dark sticky-top">
                             <tr>
                                 <th>ID</th>
                                 <th>Name</th>
                                 <th>Code</th>
                                 <th>Created At</th>
                                 <th>Modified At</th>
-                                <th>Actions</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan="5" className="text-center">Loading...</td>
-                                </tr>
-                            ) : stations.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="text-center">No stations found</td>
-                                </tr>
+                                <tr><td colSpan="6" className="text-center">Loading...</td></tr>
+                            ) : filteredStations.length === 0 ? (
+                                <tr><td colSpan="6" className="text-center">No stations found</td></tr>
                             ) : (
-                                stations.map(s => (
+                                filteredStations.map(s => (
                                     <tr key={s.id}>
                                         <td>{s.id}</td>
-                                        <td className="text-truncate" style={{ maxWidth: 200 }}>
-                                            {s.name}
-                                        </td>
+                                        <td>{s.name}</td>
                                         <td>{s.code}</td>
-                                        <td>
-                                            {new Date(s.createdAt)
-                                                .toISOString()
-                                                .slice(0, 19)
-                                                .replace('T', ' ')}
-                                        </td>
-                                        <td>
-                                            {new Date(s.modifiedDate)
-                                                .toISOString()
-                                                .slice(0, 19)
-                                                .replace('T', ' ')}
-                                        </td>
+                                        <td>{formatDateTime(s.createdAt)}</td>
+                                        <td>{formatDateTime(s.modifiedDate)}</td>
                                         <td className="text-center">
                                             <button
                                                 className="btn btn-sm btn-outline-primary"
@@ -231,71 +290,42 @@ const StationsPage = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* -------- EDIT MODAL -------- */}
                 {showEditModal && (
-                    <div
-                        className="modal fade show d-block"
-                        style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-                    >
+                    <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,.5)' }}>
                         <div className="modal-dialog modal-dialog-centered">
                             <div className="modal-content">
-
                                 <div className="modal-header">
-                                    <h5 className="modal-title">Edit Station</h5>
-                                    <button
-                                        className="btn-close"
-                                        onClick={() => setShowEditModal(false)}
+                                    <h5>Edit Station</h5>
+                                    <button className="btn-close" onClick={() => setShowEditModal(false)} />
+                                </div>
+                                <div className="modal-body">
+                                    <label>Name</label>
+                                    <input
+                                        className="form-control mb-2"
+                                        value={editForm.name}
+                                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                                    />
+                                    <label>Code</label>
+                                    <input
+                                        className="form-control"
+                                        value={editForm.code}
+                                        onChange={e => setEditForm(p => ({
+                                            ...p,
+                                            code: e.target.value.toUpperCase()
+                                        }))}
                                     />
                                 </div>
-
-                                <div className="modal-body">
-                                    <div className="mb-3">
-                                        <label className="form-label">Station Name</label>
-                                        <input
-                                            className="form-control"
-                                            value={editForm.name}
-                                            onChange={(e) =>
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    name: e.target.value
-                                                }))
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className="mb-3">
-                                        <label className="form-label">Station Code</label>
-                                        <input
-                                            className="form-control"
-                                            value={editForm.code}
-                                            onChange={(e) =>
-                                                setEditForm(prev => ({
-                                                    ...prev,
-                                                    code: e.target.value.toUpperCase()
-                                                }))
-                                            }
-                                        />
-                                    </div>
-                                </div>
-
                                 <div className="modal-footer">
-                                    <button
-                                        className="btn btn-secondary"
-                                        onClick={() => setShowEditModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={updateStation}
-                                    >
-                                        Save Changes
-                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                                    <button className="btn btn-primary" onClick={updateStation}>Save</button>
                                 </div>
-
                             </div>
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     );
