@@ -165,7 +165,12 @@ const StationsPage = () => {
                             <label className="form-label">Created From</label>
                             <DatePicker
                                 selected={createdFrom}
-                                onChange={setCreatedFrom}
+                                onChange={(date) => {
+                                    setCreatedFrom(date);
+                                    if (createdTo && date && date > createdTo) {
+                                        setCreatedTo(null);
+                                    }
+                                }}
                                 className="form-control"
                                 dateFormat="yyyy-MM-dd"
                                 placeholderText="From"
@@ -178,6 +183,7 @@ const StationsPage = () => {
                             <DatePicker
                                 selected={createdTo}
                                 onChange={setCreatedTo}
+                                minDate={createdFrom}
                                 className="form-control"
                                 dateFormat="yyyy-MM-dd"
                                 placeholderText="To"
@@ -189,7 +195,12 @@ const StationsPage = () => {
                             <label className="form-label">Modified From</label>
                             <DatePicker
                                 selected={modifiedFrom}
-                                onChange={setModifiedFrom}
+                                onChange={(date) => {
+                                    setModifiedFrom(date);
+                                    if (modifiedTo && date && date > modifiedTo) {
+                                        setModifiedTo(null);
+                                    }
+                                }}
                                 className="form-control"
                                 dateFormat="yyyy-MM-dd"
                                 placeholderText="From"
@@ -202,6 +213,7 @@ const StationsPage = () => {
                             <DatePicker
                                 selected={modifiedTo}
                                 onChange={setModifiedTo}
+                                minDate={modifiedFrom}
                                 className="form-control"
                                 dateFormat="yyyy-MM-dd"
                                 placeholderText="To"
