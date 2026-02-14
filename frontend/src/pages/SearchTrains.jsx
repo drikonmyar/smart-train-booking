@@ -111,6 +111,8 @@ export default function SearchTrains() {
                 body: JSON.stringify({
                     userId: user.id,
                     trainId: selectedTrain.trainId,
+                    sourceStationName: selectedTrain.sourceStation,
+                    destinationStationName: selectedTrain.destinationStation,
                     travelDate: formatDate(form.travelDate),
                     seatsBooked: seatsBooked
                 })
