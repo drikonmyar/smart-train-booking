@@ -2,7 +2,6 @@ package com.booking.repository.specification;
 
 import com.booking.dto.AdminBookingSearchRequest;
 import com.booking.entity.Booking;
-import com.booking.entity.Station;
 import com.booking.entity.Train;
 import com.booking.entity.User;
 import jakarta.persistence.criteria.Join;
@@ -23,8 +22,6 @@ public class BookingSpecification {
 
             Join<Booking, User> userJoin = root.join("user", JoinType.LEFT);
             Join<Booking, Train> trainJoin = root.join("train", JoinType.LEFT);
-            Join<Booking, Station> bookingSourceJoin = root.join("sourceStation", JoinType.LEFT);
-            Join<Booking, Station> bookingDestinationJoin = root.join("destinationStation", JoinType.LEFT);
 
             if (req.getUsername() != null && !req.getUsername().isBlank()) {
                 predicates.add(cb.like(
@@ -44,19 +41,17 @@ public class BookingSpecification {
                 predicates.add(cb.equal(root.get("status"), req.getStatus()));
             }
 
-            if (req.getSourceStation() != null && !req.getSourceStation().isBlank()) {
-                String sourceStation = req.getSourceStation().trim().toLowerCase();
-                predicates.add(cb.or(
-                        cb.equal(cb.lower(bookingSourceJoin.get("name")), sourceStation),
-                        cb.equal(cb.lower(trainJoin.get("sourceStation").get("name")), sourceStation)
+            if (req.getSourceStation() != null) {
+                predicates.add(cb.equal(
+                        trainJoin.get("sourceStation").get("name"),
+                        req.getSourceStation()
                 ));
             }
 
-            if (req.getDestinationStation() != null && !req.getDestinationStation().isBlank()) {
-                String destinationStation = req.getDestinationStation().trim().toLowerCase();
-                predicates.add(cb.or(
-                        cb.equal(cb.lower(bookingDestinationJoin.get("name")), destinationStation),
-                        cb.equal(cb.lower(trainJoin.get("destinationStation").get("name")), destinationStation)
+            if (req.getDestinationStation() != null) {
+                predicates.add(cb.equal(
+                        trainJoin.get("destinationStation").get("name"),
+                        req.getDestinationStation()
                 ));
             }
 

@@ -2,7 +2,6 @@ package com.booking.dto;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Set;
 
 import lombok.Data;
@@ -16,7 +15,6 @@ public class TrainSearchResponse {
 
     private String sourceStation;
     private String destinationStation;
-    private List<String> routeStations;
 
     private LocalTime departureTime;
     private LocalTime arrivalTime;

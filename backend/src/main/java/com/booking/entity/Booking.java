@@ -22,14 +22,6 @@ public class Booking extends BaseEntity {
     @JoinColumn(name = "train_id", nullable = false)
     private Train train;
 
-    @ManyToOne
-    @JoinColumn(name = "source_station_id")
-    private Station sourceStation;
-
-    @ManyToOne
-    @JoinColumn(name = "destination_station_id")
-    private Station destinationStation;
-
     @Column(nullable = false)
     private LocalDate travelDate;
 

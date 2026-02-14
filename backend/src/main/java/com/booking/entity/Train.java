@@ -2,13 +2,9 @@ package com.booking.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -42,12 +38,6 @@ public class Train extends BaseEntity {
 
     @Column(nullable = false)
     private Integer totalSeats;
-
-    @OneToMany(mappedBy = "train", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("stopOrder ASC")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<TrainRouteStation> routeStations = new ArrayList<>();
 
     @ElementCollection(targetClass = DayOfWeek.class)
     @Enumerated(EnumType.STRING)
