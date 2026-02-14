@@ -37,7 +37,7 @@ public class StationController {
 
     @GetMapping("/search")
     public List<StationResponse> searchStations(
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "") String q,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdTo,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate modifiedFrom,

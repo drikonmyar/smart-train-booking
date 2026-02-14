@@ -18,7 +18,7 @@ public interface StationRepository extends JpaRepository<Station, Long> {
 SELECT s FROM Station s
 WHERE
     (
-        :q IS NULL
+        :q = ''
         OR s.name ILIKE CONCAT('%', :q, '%')
         OR s.code ILIKE CONCAT('%', :q, '%')
     )

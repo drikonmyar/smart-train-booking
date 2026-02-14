@@ -50,7 +50,7 @@ public class StationServiceImpl implements StationService {
 
     @Override
     public List<StationResponse> searchStations(String query, LocalDate createdFrom, LocalDate createdTo, LocalDate modifiedFrom, LocalDate modifiedTo) {
-        String q = (query == null || query.trim().isEmpty()) ? null : query.trim();
+        String q = query == null ? "" : query.trim();
 
         // Normalize date ranges
         if (createdFrom != null && createdTo != null && createdFrom.isAfter(createdTo)) {
