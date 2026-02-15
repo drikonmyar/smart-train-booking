@@ -29,9 +29,10 @@ const StationsPage = () => {
 
     const formatDateTime = (value) => {
         if (!value) return '-';
-        const d = new Date(value);
-        if (isNaN(d)) return '-';
-        return d.toISOString().slice(0, 19).replace('T', ' ');
+        const [datePart, timePartRaw] = String(value).split('T');
+        if (!datePart || !timePartRaw) return '-';
+        const timePart = timePartRaw.slice(0, 8);
+        return `${datePart} ${timePart}`;
     };
 
     /* ---------------- FETCH STATIONS ---------------- */
