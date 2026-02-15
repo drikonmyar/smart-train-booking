@@ -60,6 +60,12 @@ export default function SearchTrains() {
 
     const formatDate = (date) => date.toLocaleDateString('en-CA');
 
+    const normalizeStationName = (value) => (value || '').trim().toLowerCase();
+
+    const isSameStation = (left, right) =>
+        normalizeStationName(left) !== '' &&
+        normalizeStationName(left) === normalizeStationName(right);
+
     const formatDateTime = (value) => {
         if (!value) return '-';
 
@@ -189,26 +195,37 @@ export default function SearchTrains() {
                                     overflowX: 'hidden'
                                 }}
                             >
-                                {sourceSuggestions.map(station => (
-                                    <li key={station.id}>
+                                {sourceSuggestions.map(station => {
+                                    const isDisabled = isSameStation(
+                                        station.name,
+                                        form.destinationStationName
+                                    );
+
+                                    return (
+                                        <li key={station.id}>
                                         <button
                                             type="button"
-                                            className="dropdown-item text-truncate"
+                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                            disabled={isDisabled}
                                             style={{
                                                 whiteSpace: 'nowrap',
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
-                                                maxWidth: '100%'
+                                                maxWidth: '100%',
+                                                opacity: isDisabled ? 0.6 : 1,
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer'
                                             }}
                                             onClick={() => {
+                                                if (isDisabled) return;
                                                 setForm({ ...form, sourceStationName: station.name });
                                                 setShowSourceDropdown(false);
                                             }}
                                         >
                                             {station.name} ({station.code})
                                         </button>
-                                    </li>
-                                ))}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         )}
                     </div>
@@ -242,26 +259,37 @@ export default function SearchTrains() {
                                     overflowX: 'hidden'
                                 }}
                             >
-                                {destSuggestions.map(station => (
-                                    <li key={station.id}>
+                                {destSuggestions.map(station => {
+                                    const isDisabled = isSameStation(
+                                        station.name,
+                                        form.sourceStationName
+                                    );
+
+                                    return (
+                                        <li key={station.id}>
                                         <button
                                             type="button"
-                                            className="dropdown-item text-truncate"
+                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                            disabled={isDisabled}
                                             style={{
                                                 whiteSpace: 'nowrap',
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
-                                                maxWidth: '100%'
+                                                maxWidth: '100%',
+                                                opacity: isDisabled ? 0.6 : 1,
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer'
                                             }}
                                             onClick={() => {
+                                                if (isDisabled) return;
                                                 setForm({ ...form, destinationStationName: station.name });
                                                 setShowDestDropdown(false);
                                             }}
                                         >
                                             {station.name} ({station.code})
                                         </button>
-                                    </li>
-                                ))}
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         )}
                     </div>
