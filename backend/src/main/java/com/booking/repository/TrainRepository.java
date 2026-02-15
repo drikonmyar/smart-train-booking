@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.DayOfWeek;
 import java.util.List;
 
 public interface TrainRepository extends JpaRepository<Train, Long> {
@@ -15,12 +14,12 @@ public interface TrainRepository extends JpaRepository<Train, Long> {
             LEFT JOIN sourceStop.station sourceStation
             LEFT JOIN t.routeStations destinationStop
             LEFT JOIN destinationStop.station destinationStation
-            WHERE :dayOfWeek MEMBER OF t.runningDays
-              AND (
+            WHERE (
                   (
                       LOWER(sourceStation.name) = LOWER(:sourceName)
                       AND LOWER(destinationStation.name) = LOWER(:destinationName)
-                      AND sourceStop.stopOrder < destinationStop.stopOrder
+                      AND COALESCE(sourceStop.minutesFromSource, sourceStop.stopOrder * 60)
+                          < COALESCE(destinationStop.minutesFromSource, destinationStop.stopOrder * 60)
                   )
                   OR (
                       LOWER(t.sourceStation.name) = LOWER(:sourceName)
@@ -28,8 +27,7 @@ public interface TrainRepository extends JpaRepository<Train, Long> {
                   )
               )
             """)
-    List<Train> findTrainsByRouteAndDay(
+    List<Train> findTrainsByRoute(
             @Param("sourceName") String sourceName,
-            @Param("destinationName") String destinationName,
-            @Param("dayOfWeek") DayOfWeek dayOfWeek);
+            @Param("destinationName") String destinationName);
 }

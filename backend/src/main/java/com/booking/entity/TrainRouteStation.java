@@ -10,7 +10,8 @@ import lombok.ToString;
 @Table(
         name = "train_route_stations",
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"train_id", "stop_order"})
+                @UniqueConstraint(columnNames = {"train_id", "stop_order"}),
+                @UniqueConstraint(columnNames = {"train_id", "station_id"})
         }
 )
 @Data
@@ -33,4 +34,7 @@ public class TrainRouteStation extends BaseEntity {
 
     @Column(name = "stop_order", nullable = false)
     private Integer stopOrder;
+
+    @Column(name = "minutes_from_source", nullable = false)
+    private Integer minutesFromSource;
 }

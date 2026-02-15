@@ -2,6 +2,7 @@ package com.booking.service.impl;
 
 import com.booking.dto.CreateTrainRequest;
 import com.booking.dto.SearchTrainRequest;
+import com.booking.dto.TrainRouteStopRequest;
 import com.booking.dto.TrainSearchResponse;
 import com.booking.entity.Station;
 import com.booking.entity.Train;
@@ -15,9 +16,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -53,26 +57,46 @@ public class TrainServiceImpl implements TrainService {
             throw new RuntimeException("Source and destination must be different");
         }
 
-        DayOfWeek dayOfWeek = request.getTravelDate().getDayOfWeek();
-
         List<Train> trains = trainRepository
-                .findTrainsByRouteAndDay(
+                .findTrainsByRoute(
                         sourceName,
-                        destinationName,
-                        dayOfWeek
+                        destinationName
                 );
 
         return trains.stream()
-                .map(train -> mapToResponse(train, request, sourceName, destinationName))
+                .map(train -> mapToResponse(train, request.getTravelDate(), sourceName, destinationName))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
     private TrainSearchResponse mapToResponse(
             Train train,
-            SearchTrainRequest request,
+            LocalDate sourceTravelDate,
             String sourceName,
             String destinationName
     ) {
+        RouteStopInfo sourceStop = findRouteStopByStationName(train, sourceName)
+                .orElseThrow(() -> new RuntimeException(
+                        "Source station not found in route for train: " + train.getTrainNumber()
+                ));
+        RouteStopInfo destinationStop = findRouteStopByStationName(train, destinationName)
+                .orElseThrow(() -> new RuntimeException(
+                        "Destination station not found in route for train: " + train.getTrainNumber()
+                ));
+
+        if (sourceStop.minutesFromSource() >= destinationStop.minutesFromSource()) {
+            throw new RuntimeException("Invalid route order for train: " + train.getTrainNumber());
+        }
+
+        LocalDate originServiceDate = resolveOriginServiceDate(
+                sourceTravelDate,
+                train.getDepartureTime(),
+                sourceStop.minutesFromSource()
+        );
+        DayOfWeek originDayOfWeek = originServiceDate.getDayOfWeek();
+        if (train.getRunningDays() == null || !train.getRunningDays().contains(originDayOfWeek)) {
+            return null;
+        }
 
         TrainSearchResponse response = new TrainSearchResponse();
 
@@ -80,18 +104,18 @@ public class TrainServiceImpl implements TrainService {
         response.setTrainNumber(train.getTrainNumber());
         response.setTrainName(train.getTrainName());
 
-        response.setSourceStation(
-                findStationNameInRoute(train, sourceName)
-                        .orElse(sourceName)
-        );
-        response.setDestinationStation(
-                findStationNameInRoute(train, destinationName)
-                        .orElse(destinationName)
-        );
+        response.setSourceStation(sourceStop.station().getName());
+        response.setDestinationStation(destinationStop.station().getName());
         response.setRouteStations(getRouteStationNames(train));
 
-        response.setDepartureTime(train.getDepartureTime());
-        response.setArrivalTime(train.getArrivalTime());
+        LocalDateTime baseDepartureDateTime = originServiceDate.atTime(train.getDepartureTime());
+        LocalDateTime sourceDepartureDateTime = baseDepartureDateTime.plusMinutes(sourceStop.minutesFromSource());
+        LocalDateTime destinationArrivalDateTime = baseDepartureDateTime.plusMinutes(destinationStop.minutesFromSource());
+
+        response.setDepartureDateTime(sourceDepartureDateTime);
+        response.setArrivalDateTime(destinationArrivalDateTime);
+        response.setDepartureTime(sourceDepartureDateTime.toLocalTime());
+        response.setArrivalTime(destinationArrivalDateTime.toLocalTime());
 
         response.setTotalSeats(train.getTotalSeats());
         response.setRunningDays(train.getRunningDays());
@@ -100,7 +124,7 @@ public class TrainServiceImpl implements TrainService {
         Integer seatsRemaining = seatAvailabilityRepository
                 .findByTrainAndTravelDate(
                         train,
-                        request.getTravelDate()
+                        originServiceDate
                 )
                 .map(TrainSeatAvailability::getAvailableSeats)
                 .orElse(train.getTotalSeats());
@@ -126,24 +150,33 @@ public class TrainServiceImpl implements TrainService {
     }
 
     private Train buildTrainFromRequest(CreateTrainRequest request) {
-        List<Station> route = resolveRouteStations(request);
+        if (request.getDepartureTime() == null) {
+            throw new RuntimeException("Departure time is required");
+        }
+        if (request.getTotalSeats() == null || request.getTotalSeats() <= 0) {
+            throw new RuntimeException("Total seats must be greater than zero");
+        }
+
+        List<RouteStopInput> routeStops = resolveRouteStops(request);
 
         Train train = new Train();
         train.setTrainNumber(request.getTrainNumber());
         train.setTrainName(request.getTrainName());
-        train.setSourceStation(route.getFirst());
-        train.setDestinationStation(route.getLast());
+        train.setSourceStation(routeStops.getFirst().station());
+        train.setDestinationStation(routeStops.getLast().station());
         train.setDepartureTime(request.getDepartureTime());
-        train.setArrivalTime(request.getArrivalTime());
         train.setTotalSeats(request.getTotalSeats());
         train.setRunningDays(request.getRunningDays());
 
         List<TrainRouteStation> routeStations = new ArrayList<>();
-        for (int index = 0; index < route.size(); index++) {
+        for (int index = 0; index < routeStops.size(); index++) {
+            RouteStopInput routeStop = routeStops.get(index);
+
             TrainRouteStation routeStation = new TrainRouteStation();
             routeStation.setTrain(train);
-            routeStation.setStation(route.get(index));
+            routeStation.setStation(routeStop.station());
             routeStation.setStopOrder(index);
+            routeStation.setMinutesFromSource(routeStop.minutesFromSource());
             routeStations.add(routeStation);
         }
         train.setRouteStations(routeStations);
@@ -151,39 +184,43 @@ public class TrainServiceImpl implements TrainService {
         return train;
     }
 
-    private List<Station> resolveRouteStations(CreateTrainRequest request) {
-        List<Long> routeStationIds = request.getRouteStationIds();
-        if (routeStationIds != null && !routeStationIds.isEmpty()) {
-            if (routeStationIds.size() < 2) {
-                throw new RuntimeException("Train route must contain at least two stations");
-            }
-            return fetchStationsByIds(routeStationIds);
+    private List<RouteStopInput> resolveRouteStops(CreateTrainRequest request) {
+        List<TrainRouteStopRequest> routeStops = request.getRouteStops();
+        if (routeStops == null || routeStops.size() < 2) {
+            throw new RuntimeException("Train route must contain at least two stations");
         }
 
-        if (request.getSourceStationId() != null && request.getDestinationStationId() != null) {
-            return fetchStationsByIds(List.of(request.getSourceStationId(), request.getDestinationStationId()));
-        }
+        Set<Long> uniqueStationIds = new HashSet<>();
+        List<RouteStopInput> resolvedRouteStops = new ArrayList<>();
+        int previousMinutesFromSource = -1;
 
-        throw new RuntimeException("Provide routeStationIds or sourceStationId and destinationStationId");
-    }
-
-    private List<Station> fetchStationsByIds(List<Long> stationIds) {
-        Set<Long> dedupe = new HashSet<>(stationIds);
-        if (dedupe.size() != stationIds.size()) {
-            throw new RuntimeException("Duplicate stations are not allowed in train route");
-        }
-
-        List<Station> routeStations = new ArrayList<>();
-        for (Long stationId : stationIds) {
-            if (stationId == null) {
+        for (int index = 0; index < routeStops.size(); index++) {
+            TrainRouteStopRequest routeStop = routeStops.get(index);
+            if (routeStop.getStationId() == null) {
                 throw new RuntimeException("Route station id cannot be null");
             }
+            if (routeStop.getMinutesFromSource() == null || routeStop.getMinutesFromSource() < 0) {
+                throw new RuntimeException("minutesFromSource must be zero or positive");
+            }
+            if (index == 0 && routeStop.getMinutesFromSource() != 0) {
+                throw new RuntimeException("First route station must have minutesFromSource = 0");
+            }
+            if (routeStop.getMinutesFromSource() <= previousMinutesFromSource) {
+                throw new RuntimeException("Route station minutes must be strictly increasing");
+            }
+            if (!uniqueStationIds.add(routeStop.getStationId())) {
+                throw new RuntimeException("Duplicate stations are not allowed in train route");
+            }
 
-            Station station = stationRepository.findById(stationId)
-                    .orElseThrow(() -> new RuntimeException("Station not found for id: " + stationId));
-            routeStations.add(station);
+            Station station = stationRepository.findById(routeStop.getStationId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Station not found for id: " + routeStop.getStationId()
+                    ));
+            resolvedRouteStops.add(new RouteStopInput(station, routeStop.getMinutesFromSource()));
+            previousMinutesFromSource = routeStop.getMinutesFromSource();
         }
-        return routeStations;
+
+        return resolvedRouteStops;
     }
 
     private String normalizeStationName(String value, String errorMessage) {
@@ -193,27 +230,51 @@ public class TrainServiceImpl implements TrainService {
         return value.trim();
     }
 
-    private Optional<String> findStationNameInRoute(Train train, String searchName) {
-        if (train.getRouteStations() == null || train.getRouteStations().isEmpty()) {
-            return Optional.empty();
-        }
-
-        return train.getRouteStations().stream()
-                .map(routeStation -> routeStation.getStation().getName())
-                .filter(name -> name.equalsIgnoreCase(searchName))
+    private Optional<RouteStopInfo> findRouteStopByStationName(Train train, String stationName) {
+        return getEffectiveRouteStops(train).stream()
+                .filter(routeStop -> routeStop.station().getName().equalsIgnoreCase(stationName))
                 .findFirst();
     }
 
-    private List<String> getRouteStationNames(Train train) {
+    private List<RouteStopInfo> getEffectiveRouteStops(Train train) {
         if (train.getRouteStations() != null && !train.getRouteStations().isEmpty()) {
             return train.getRouteStations().stream()
-                    .map(routeStation -> routeStation.getStation().getName())
+                    .map(routeStation -> new RouteStopInfo(
+                            routeStation.getStation(),
+                            routeStation.getStopOrder(),
+                            routeStation.getMinutesFromSource() != null
+                                    ? routeStation.getMinutesFromSource()
+                                    : routeStation.getStopOrder() * 60
+                    ))
                     .toList();
         }
 
         return List.of(
-                train.getSourceStation().getName(),
-                train.getDestinationStation().getName()
+                new RouteStopInfo(train.getSourceStation(), 0, 0),
+                new RouteStopInfo(train.getDestinationStation(), 1, 60)
         );
+    }
+
+    private List<String> getRouteStationNames(Train train) {
+        return getEffectiveRouteStops(train).stream()
+                .map(routeStop -> routeStop.station().getName())
+                .toList();
+    }
+
+    private LocalDate resolveOriginServiceDate(
+            LocalDate sourceTravelDate,
+            java.time.LocalTime originDepartureTime,
+            Integer sourceMinutesFromSource
+    ) {
+        int departureMinutes = originDepartureTime.toSecondOfDay() / 60;
+        int sourceAbsoluteMinutes = departureMinutes + sourceMinutesFromSource;
+        int sourceDayShift = Math.floorDiv(sourceAbsoluteMinutes, 24 * 60);
+        return sourceTravelDate.minusDays(sourceDayShift);
+    }
+
+    private record RouteStopInput(Station station, Integer minutesFromSource) {
+    }
+
+    private record RouteStopInfo(Station station, Integer stopOrder, Integer minutesFromSource) {
     }
 }

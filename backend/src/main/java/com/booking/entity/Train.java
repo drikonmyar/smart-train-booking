@@ -34,11 +34,9 @@ public class Train extends BaseEntity {
     @JoinColumn(name = "destination_station_id", nullable = false)
     private Station destinationStation;
 
+    // Departure time from source station.
     @Column(nullable = false)
     private LocalTime departureTime;
-
-    @Column(nullable = false)
-    private LocalTime arrivalTime;
 
     @Column(nullable = false)
     private Integer totalSeats;

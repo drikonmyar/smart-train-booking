@@ -60,6 +60,23 @@ export default function SearchTrains() {
 
     const formatDate = (date) => date.toLocaleDateString('en-CA');
 
+    const formatDateTime = (value) => {
+        if (!value) return '-';
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const hh = String(date.getHours()).padStart(2, '0');
+        const min = String(date.getMinutes()).padStart(2, '0');
+
+        return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+    };
+
     const handleDateChange = (date) => {
         setForm({ ...form, travelDate: date });
     };
@@ -285,8 +302,20 @@ export default function SearchTrains() {
                                     <tr key={train.trainId}>
                                         <td>{train.trainNumber}</td>
                                         <td>{train.trainName}</td>
-                                        <td>{train.sourceStation} <br /><small className="text-muted">{train.departureTime}</small></td>
-                                        <td>{train.destinationStation} <br /><small className="text-muted">{train.arrivalTime}</small></td>
+                                        <td>
+                                            {train.sourceStation}
+                                            <br />
+                                            <small className="text-muted">
+                                                {formatDateTime(train.departureDateTime ?? train.departureTime)}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {train.destinationStation}
+                                            <br />
+                                            <small className="text-muted">
+                                                {formatDateTime(train.arrivalDateTime ?? train.arrivalTime)}
+                                            </small>
+                                        </td>
                                         <td>{train.seatsRemaining}</td>
                                         <td><button
                                             className="btn btn-success btn-sm"

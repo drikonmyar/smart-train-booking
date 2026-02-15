@@ -19,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,19 +43,24 @@ public class BookingServiceImpl implements BookingService {
         Train train = trainRepository.findById(request.getTrainId())
                 .orElseThrow(() -> new RuntimeException("Train not found"));
 
-        DayOfWeek travelDay = request.getTravelDate().getDayOfWeek();
-        if (!train.getRunningDays().contains(travelDay)) {
+        RouteSelection routeSelection = resolveRouteSelection(train, request);
+        LocalDate originServiceDate = resolveOriginServiceDate(
+                request.getTravelDate(),
+                train,
+                routeSelection.sourceStation()
+        );
+
+        DayOfWeek originDay = originServiceDate.getDayOfWeek();
+        if (train.getRunningDays() == null || !train.getRunningDays().contains(originDay)) {
             throw new RuntimeException("Train does not run on selected date");
         }
 
-        RouteSelection routeSelection = resolveRouteSelection(train, request);
-
         TrainSeatAvailability availability =
-                availabilityRepository.findByTrainAndTravelDate(train, request.getTravelDate())
+                availabilityRepository.findByTrainAndTravelDate(train, originServiceDate)
                         .orElseGet(() -> {
                             TrainSeatAvailability a = new TrainSeatAvailability();
                             a.setTrain(train);
-                            a.setTravelDate(request.getTravelDate());
+                            a.setTravelDate(originServiceDate);
                             a.setAvailableSeats(train.getTotalSeats());
                             return availabilityRepository.save(a);
                         });
@@ -141,7 +147,11 @@ public class BookingServiceImpl implements BookingService {
                 availabilityRepository
                         .findByTrainAndTravelDate(
                                 booking.getTrain(),
-                                booking.getTravelDate()
+                                resolveOriginServiceDate(
+                                        booking.getTravelDate(),
+                                        booking.getTrain(),
+                                        getEffectiveSourceStation(booking)
+                                )
                         )
                         .orElseThrow(() ->
                                 new RuntimeException("Seat availability not found")
@@ -203,13 +213,13 @@ public class BookingServiceImpl implements BookingService {
                 : findStationInRoute(train, destinationName)
                 .orElseThrow(() -> new RuntimeException("Destination station is not part of selected train route"));
 
-        int sourceOrder = getStationOrder(train, sourceStation);
-        int destinationOrder = getStationOrder(train, destinationStation);
+        int sourceMinutes = getStationMinutesFromSource(train, sourceStation);
+        int destinationMinutes = getStationMinutesFromSource(train, destinationStation);
 
-        if (sourceOrder == -1 || destinationOrder == -1) {
+        if (sourceMinutes == -1 || destinationMinutes == -1) {
             throw new RuntimeException("Unable to validate booking route for selected train");
         }
-        if (sourceOrder >= destinationOrder) {
+        if (sourceMinutes >= destinationMinutes) {
             throw new RuntimeException("Source station must come before destination station in train route");
         }
 
@@ -227,7 +237,7 @@ public class BookingServiceImpl implements BookingService {
                 .findFirst();
     }
 
-    private int getStationOrder(Train train, Station station) {
+    private int getStationMinutesFromSource(Train train, Station station) {
         if (station == null) {
             return -1;
         }
@@ -235,7 +245,9 @@ public class BookingServiceImpl implements BookingService {
         if (train.getRouteStations() != null && !train.getRouteStations().isEmpty()) {
             return train.getRouteStations().stream()
                     .filter(routeStation -> routeStation.getStation().getId().equals(station.getId()))
-                    .map(TrainRouteStation::getStopOrder)
+                    .map(routeStation -> routeStation.getMinutesFromSource() != null
+                            ? routeStation.getMinutesFromSource()
+                            : routeStation.getStopOrder() * 60)
                     .findFirst()
                     .orElse(-1);
         }
@@ -265,6 +277,22 @@ public class BookingServiceImpl implements BookingService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private LocalDate resolveOriginServiceDate(
+            LocalDate sourceTravelDate,
+            Train train,
+            Station sourceStation
+    ) {
+        int sourceMinutesFromSource = getStationMinutesFromSource(train, sourceStation);
+        if (sourceMinutesFromSource < 0) {
+            throw new RuntimeException("Unable to resolve source station timing for booking");
+        }
+
+        int departureMinutes = train.getDepartureTime().toSecondOfDay() / 60;
+        int sourceAbsoluteMinutes = departureMinutes + sourceMinutesFromSource;
+        int sourceDayShift = Math.floorDiv(sourceAbsoluteMinutes, 24 * 60);
+        return sourceTravelDate.minusDays(sourceDayShift);
     }
 
     private Station getEffectiveSourceStation(Booking booking) {

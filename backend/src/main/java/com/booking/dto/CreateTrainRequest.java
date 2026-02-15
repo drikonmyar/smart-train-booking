@@ -13,15 +13,11 @@ public class CreateTrainRequest {
     private String trainNumber;
     private String trainName;
 
-    // Preferred for multi-stop trains. Keep order as train route.
-    private List<Long> routeStationIds;
-
-    // Backward-compatible fallback for old clients.
-    private Long sourceStationId;
-    private Long destinationStationId;
-
+    // Departure from train source station.
     private LocalTime departureTime;
-    private LocalTime arrivalTime;
+
+    // Ordered route with cumulative travel minutes from source station.
+    private List<TrainRouteStopRequest> routeStops;
 
     private Integer totalSeats;
 

@@ -1,6 +1,7 @@
 package com.booking.dto;
 
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
@@ -17,6 +18,9 @@ public class TrainSearchResponse {
     private String sourceStation;
     private String destinationStation;
     private List<String> routeStations;
+
+    private LocalDateTime departureDateTime;
+    private LocalDateTime arrivalDateTime;
 
     private LocalTime departureTime;
     private LocalTime arrivalTime;
