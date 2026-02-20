@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -38,6 +38,10 @@ export default function Trains() {
     const [stations, setStations] = useState([]);
     const [filters, setFilters] = useState(EMPTY_FILTERS);
     const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
+    const [filterSourceSuggestions, setFilterSourceSuggestions] = useState([]);
+    const [filterDestinationSuggestions, setFilterDestinationSuggestions] = useState([]);
+    const [showFilterSourceSuggestions, setShowFilterSourceSuggestions] = useState(false);
+    const [showFilterDestinationSuggestions, setShowFilterDestinationSuggestions] = useState(false);
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(10);
@@ -56,6 +60,12 @@ export default function Trains() {
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingTrainId, setEditingTrainId] = useState(null);
     const [formData, setFormData] = useState(EMPTY_FORM);
+    const [sourceStationInput, setSourceStationInput] = useState('');
+    const [destinationStationInput, setDestinationStationInput] = useState('');
+    const [sourceStationSuggestions, setSourceStationSuggestions] = useState([]);
+    const [destinationStationSuggestions, setDestinationStationSuggestions] = useState([]);
+    const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
+    const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -70,6 +80,10 @@ export default function Trains() {
 
     const [flash, setFlash] = useState(null);
     const [actionLoadingId, setActionLoadingId] = useState(null);
+    const sourceStationRef = useRef(null);
+    const destinationStationRef = useRef(null);
+    const filterSourceRef = useRef(null);
+    const filterDestinationRef = useRef(null);
 
     const adminHeaders = useMemo(
         () => ({ 'X-User-Role': user?.role || '' }),
@@ -82,6 +96,36 @@ export default function Trains() {
         const timer = setTimeout(() => setFlash(null), 2500);
         return () => clearTimeout(timer);
     }, [flash]);
+
+    useEffect(() => {
+        if (!showFormModal) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (sourceStationRef.current && !sourceStationRef.current.contains(event.target)) {
+                setShowSourceSuggestions(false);
+            }
+            if (destinationStationRef.current && !destinationStationRef.current.contains(event.target)) {
+                setShowDestinationSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showFormModal]);
+
+    useEffect(() => {
+        const handleFilterOutsideClick = (event) => {
+            if (filterSourceRef.current && !filterSourceRef.current.contains(event.target)) {
+                setShowFilterSourceSuggestions(false);
+            }
+            if (filterDestinationRef.current && !filterDestinationRef.current.contains(event.target)) {
+                setShowFilterDestinationSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleFilterOutsideClick);
+        return () => document.removeEventListener('mousedown', handleFilterOutsideClick);
+    }, []);
 
     const formatDateForApi = (date) => {
         if (!date) return null;
@@ -103,6 +147,12 @@ export default function Trains() {
         if (!value) return '';
         return String(value).slice(0, 5);
     };
+
+    const normalizeStationName = (value) => (value || '').trim().toLowerCase();
+
+    const isSameStationName = (left, right) =>
+        normalizeStationName(left) !== '' &&
+        normalizeStationName(left) === normalizeStationName(right);
 
     const weekDays = [
         { key: 'MONDAY', label: 'M' },
@@ -188,6 +238,21 @@ export default function Trains() {
         }
     }, []);
 
+    const searchStations = useCallback(async (query, excludedStationId, setter) => {
+        try {
+            const response = await api.get('/stations/search', {
+                params: { q: query || '' }
+            });
+            const data = Array.isArray(response.data) ? response.data : [];
+            const filtered = data
+                .filter((station) => !excludedStationId || String(station.id) !== String(excludedStationId))
+                .slice(0, 20);
+            setter(filtered);
+        } catch {
+            setter([]);
+        }
+    }, []);
+
     const fetchTrains = useCallback(async () => {
         setLoading(true);
         setTableError('');
@@ -256,6 +321,12 @@ export default function Trains() {
 
     const resetForm = () => {
         setFormData(EMPTY_FORM);
+        setSourceStationInput('');
+        setDestinationStationInput('');
+        setSourceStationSuggestions([]);
+        setDestinationStationSuggestions([]);
+        setShowSourceSuggestions(false);
+        setShowDestinationSuggestions(false);
         setFormError('');
         setEditingTrainId(null);
     };
@@ -297,6 +368,12 @@ export default function Trains() {
                 endTime: toInputTime(details.endTime),
                 status: details.status || 'ACTIVE'
             });
+            setSourceStationInput(sourceStop?.stationName || details.sourceStation || '');
+            setDestinationStationInput(destinationStop?.stationName || details.destinationStation || '');
+            setSourceStationSuggestions([]);
+            setDestinationStationSuggestions([]);
+            setShowSourceSuggestions(false);
+            setShowDestinationSuggestions(false);
             setEditingTrainId(trainId);
             setShowFormModal(true);
         } catch (error) {
@@ -473,6 +550,8 @@ export default function Trains() {
 
         setTableError('');
         setPage(0);
+        setShowFilterSourceSuggestions(false);
+        setShowFilterDestinationSuggestions(false);
         setAppliedFilters({
             trainNumber: filters.trainNumber,
             trainName: filters.trainName,
@@ -487,6 +566,10 @@ export default function Trains() {
     const resetFilters = () => {
         setFilters(EMPTY_FILTERS);
         setAppliedFilters(EMPTY_FILTERS);
+        setFilterSourceSuggestions([]);
+        setFilterDestinationSuggestions([]);
+        setShowFilterSourceSuggestions(false);
+        setShowFilterDestinationSuggestions(false);
         setPage(0);
     };
 
@@ -641,31 +724,137 @@ export default function Trains() {
                                 placeholder="Type Train Name..."
                             />
                         </div>
-                        <div className="col-md-3">
+                        <div className="col-md-3 position-relative" ref={filterSourceRef}>
                             <label className="form-label">Source Station</label>
                             <input
                                 type="text"
                                 className="form-control"
                                 value={filters.sourceStation}
-                                onChange={(event) => setFilters((prev) => ({
-                                    ...prev,
-                                    sourceStation: event.target.value
-                                }))}
+                                onFocus={() => {
+                                    setShowFilterSourceSuggestions(true);
+                                    searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
+                                }}
+                                onChange={(event) => {
+                                    const value = event.target.value;
+                                    setFilters((prev) => ({
+                                        ...prev,
+                                        sourceStation: value
+                                    }));
+                                    setShowFilterSourceSuggestions(true);
+                                    searchStations(value, null, setFilterSourceSuggestions);
+                                }}
                                 placeholder="Type Source Station..."
                             />
+
+                            {showFilterSourceSuggestions && filterSourceSuggestions.length > 0 && (
+                                <ul
+                                    className="dropdown-menu show w-100"
+                                    style={{
+                                        maxHeight: '220px',
+                                        overflowY: 'auto',
+                                        overflowX: 'hidden',
+                                        zIndex: 1100
+                                    }}
+                                >
+                                    {filterSourceSuggestions.map((station) => {
+                                        const isDisabled = isSameStationName(
+                                            station.name,
+                                            filters.destinationStation
+                                        );
+
+                                        return (
+                                            <li key={station.id}>
+                                                <button
+                                                    type="button"
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    disabled={isDisabled}
+                                                    style={{
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}
+                                                    onClick={() => {
+                                                        if (isDisabled) return;
+                                                        setFilters((prev) => ({
+                                                            ...prev,
+                                                            sourceStation: station.name
+                                                        }));
+                                                        setShowFilterSourceSuggestions(false);
+                                                    }}
+                                                >
+                                                    {station.name} ({station.code})
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
-                        <div className="col-md-3">
+                        <div className="col-md-3 position-relative" ref={filterDestinationRef}>
                             <label className="form-label">Destination Station</label>
                             <input
                                 type="text"
                                 className="form-control"
                                 value={filters.destinationStation}
-                                onChange={(event) => setFilters((prev) => ({
-                                    ...prev,
-                                    destinationStation: event.target.value
-                                }))}
+                                onFocus={() => {
+                                    setShowFilterDestinationSuggestions(true);
+                                    searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
+                                }}
+                                onChange={(event) => {
+                                    const value = event.target.value;
+                                    setFilters((prev) => ({
+                                        ...prev,
+                                        destinationStation: value
+                                    }));
+                                    setShowFilterDestinationSuggestions(true);
+                                    searchStations(value, null, setFilterDestinationSuggestions);
+                                }}
                                 placeholder="Type Destination Station..."
                             />
+
+                            {showFilterDestinationSuggestions && filterDestinationSuggestions.length > 0 && (
+                                <ul
+                                    className="dropdown-menu show w-100"
+                                    style={{
+                                        maxHeight: '220px',
+                                        overflowY: 'auto',
+                                        overflowX: 'hidden',
+                                        zIndex: 1100
+                                    }}
+                                >
+                                    {filterDestinationSuggestions.map((station) => {
+                                        const isDisabled = isSameStationName(
+                                            station.name,
+                                            filters.sourceStation
+                                        );
+
+                                        return (
+                                            <li key={station.id}>
+                                                <button
+                                                    type="button"
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    disabled={isDisabled}
+                                                    style={{
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}
+                                                    onClick={() => {
+                                                        if (isDisabled) return;
+                                                        setFilters((prev) => ({
+                                                            ...prev,
+                                                            destinationStation: station.name
+                                                        }));
+                                                        setShowFilterDestinationSuggestions(false);
+                                                    }}
+                                                >
+                                                    {station.name} ({station.code})
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
 
                         <div className="col-md-2">
@@ -917,49 +1106,149 @@ export default function Trains() {
                                             }))}
                                         />
                                     </div>
-                                    <div className="col-md-6">
+                                    <div className="col-md-6 position-relative" ref={sourceStationRef}>
                                         <label className="form-label">Source Station</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.sourceStationId}
-                                            onChange={(event) => setFormData((prev) => ({
-                                                ...prev,
-                                                sourceStationId: event.target.value
-                                            }))}
-                                        >
-                                            <option value="">Select Source</option>
-                                            {stations.map((station) => (
-                                                <option
-                                                    key={station.id}
-                                                    value={station.id}
-                                                    disabled={String(station.id) === formData.destinationStationId}
-                                                >
-                                                    {station.name} ({station.code})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            value={sourceStationInput}
+                                            placeholder="Type source station"
+                                            onFocus={() => {
+                                                setShowSourceSuggestions(true);
+                                                searchStations(
+                                                    sourceStationInput,
+                                                    formData.destinationStationId,
+                                                    setSourceStationSuggestions
+                                                );
+                                            }}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                setSourceStationInput(value);
+                                                setShowSourceSuggestions(true);
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    sourceStationId: ''
+                                                }));
+                                                searchStations(
+                                                    value,
+                                                    formData.destinationStationId,
+                                                    setSourceStationSuggestions
+                                                );
+                                            }}
+                                        />
+
+                                        {showSourceSuggestions && sourceStationSuggestions.length > 0 && (
+                                            <ul
+                                                className="dropdown-menu show w-100"
+                                                style={{
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    overflowX: 'hidden',
+                                                    zIndex: 1100
+                                                }}
+                                            >
+                                                {sourceStationSuggestions.map((station) => {
+                                                    const isDisabled = String(station.id) === formData.destinationStationId;
+                                                    return (
+                                                        <li key={station.id}>
+                                                            <button
+                                                                type="button"
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                disabled={isDisabled}
+                                                                style={{
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (isDisabled) return;
+                                                                    setSourceStationInput(station.name);
+                                                                    setFormData((prev) => ({
+                                                                        ...prev,
+                                                                        sourceStationId: String(station.id)
+                                                                    }));
+                                                                    setShowSourceSuggestions(false);
+                                                                }}
+                                                            >
+                                                                {station.name} ({station.code})
+                                                            </button>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        )}
                                     </div>
-                                    <div className="col-md-6">
+                                    <div className="col-md-6 position-relative" ref={destinationStationRef}>
                                         <label className="form-label">Destination Station</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.destinationStationId}
-                                            onChange={(event) => setFormData((prev) => ({
-                                                ...prev,
-                                                destinationStationId: event.target.value
-                                            }))}
-                                        >
-                                            <option value="">Select Destination</option>
-                                            {stations.map((station) => (
-                                                <option
-                                                    key={station.id}
-                                                    value={station.id}
-                                                    disabled={String(station.id) === formData.sourceStationId}
-                                                >
-                                                    {station.name} ({station.code})
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            value={destinationStationInput}
+                                            placeholder="Type destination station"
+                                            onFocus={() => {
+                                                setShowDestinationSuggestions(true);
+                                                searchStations(
+                                                    destinationStationInput,
+                                                    formData.sourceStationId,
+                                                    setDestinationStationSuggestions
+                                                );
+                                            }}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                setDestinationStationInput(value);
+                                                setShowDestinationSuggestions(true);
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    destinationStationId: ''
+                                                }));
+                                                searchStations(
+                                                    value,
+                                                    formData.sourceStationId,
+                                                    setDestinationStationSuggestions
+                                                );
+                                            }}
+                                        />
+
+                                        {showDestinationSuggestions && destinationStationSuggestions.length > 0 && (
+                                            <ul
+                                                className="dropdown-menu show w-100"
+                                                style={{
+                                                    maxHeight: '220px',
+                                                    overflowY: 'auto',
+                                                    overflowX: 'hidden',
+                                                    zIndex: 1100
+                                                }}
+                                            >
+                                                {destinationStationSuggestions.map((station) => {
+                                                    const isDisabled = String(station.id) === formData.sourceStationId;
+                                                    return (
+                                                        <li key={station.id}>
+                                                            <button
+                                                                type="button"
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                disabled={isDisabled}
+                                                                style={{
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis'
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (isDisabled) return;
+                                                                    setDestinationStationInput(station.name);
+                                                                    setFormData((prev) => ({
+                                                                        ...prev,
+                                                                        destinationStationId: String(station.id)
+                                                                    }));
+                                                                    setShowDestinationSuggestions(false);
+                                                                }}
+                                                            >
+                                                                {station.name} ({station.code})
+                                                            </button>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        )}
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label">Total Seats</label>
