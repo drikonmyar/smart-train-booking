@@ -12,4 +12,6 @@ public interface TrainSeatAvailabilityRepository
 
     Optional<TrainSeatAvailability>
     findByTrainAndTravelDate(Train train, LocalDate travelDate);
+
+    void deleteByTrain(Train train);
 }

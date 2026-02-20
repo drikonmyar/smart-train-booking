@@ -27,4 +27,7 @@ public class User extends BaseEntity {
     @Column(length = 15)
     private String phone;
 
+    @Column(length = 20)
+    private String role;
+
 }

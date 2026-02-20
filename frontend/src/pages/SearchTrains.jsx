@@ -116,9 +116,12 @@ export default function SearchTrains() {
     };
 
     const { user } = useUser();
+    const isLoggedInUser = (user?.role || '').toUpperCase() === 'USER';
+    const bookingLoginMessage = 'Please Login as a USER to Book Tickets';
+
     const openBookingForm = (train) => {
-        if (!user) {
-            alert('Please login to book a train');
+        if (!user || !isLoggedInUser) {
+            alert(bookingLoginMessage);
             return;
         }
         setSelectedTrain(train);
@@ -345,13 +348,24 @@ export default function SearchTrains() {
                                             </small>
                                         </td>
                                         <td>{train.seatsRemaining}</td>
-                                        <td><button
-                                            className="btn btn-success btn-sm"
-                                            onClick={() => openBookingForm(train)}
-                                            disabled={train.seatsRemaining <= 0}
-                                        >
-                                            Book Now
-                                        </button></td>
+                                        <td>
+                                            <span
+                                                title={
+                                                    (!user || !isLoggedInUser)
+                                                        ? bookingLoginMessage
+                                                        : (train.seatsRemaining <= 0 ? 'No seats available' : '')
+                                                }
+                                                style={{ display: 'inline-block' }}
+                                            >
+                                                <button
+                                                    className="btn btn-success btn-sm"
+                                                    onClick={() => openBookingForm(train)}
+                                                    disabled={!isLoggedInUser || train.seatsRemaining <= 0}
+                                                >
+                                                    Book Now
+                                                </button>
+                                            </span>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

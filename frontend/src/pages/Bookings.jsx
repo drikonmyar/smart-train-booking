@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useUser } from '../context/UserContext';
 
 const BookingsPage = () => {
+    const { user } = useUser();
+    const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
+
     const [filters, setFilters] = useState({
         bookingFromDate: null,
         bookingToDate: null,
@@ -19,6 +23,7 @@ const BookingsPage = () => {
 
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const [sourceSuggestions, setSourceSuggestions] = useState([]);
     const [destSuggestions, setDestSuggestions] = useState([]);
@@ -46,11 +51,16 @@ const BookingsPage = () => {
     };
 
     const fetchBookings = async () => {
+        if (!isAdmin) return;
         setLoading(true);
+        setError('');
         try {
             const res = await fetch('/api/bookings/getall', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Role': user?.role || ''
+                },
                 body: JSON.stringify({
                     bookingFromDate: filters.bookingFromDate || null,
                     bookingToDate: filters.bookingToDate || null,
@@ -66,10 +76,18 @@ const BookingsPage = () => {
                 })
             });
 
+            if (!res.ok) {
+                const payload = await res.json().catch(() => null);
+                setError(payload?.message || 'Failed to fetch bookings');
+                setBookings([]);
+                return;
+            }
+
             const data = await res.json();
-            setBookings(data);
-        } catch (err) {
-            console.error('Failed to fetch bookings', err);
+            setBookings(Array.isArray(data) ? data : []);
+        } catch {
+            setError('Failed to fetch bookings');
+            setBookings([]);
         } finally {
             setLoading(false);
         }
@@ -107,12 +125,35 @@ const BookingsPage = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    if (!user) {
+        return (
+            <div className="container py-5">
+                <div className="alert alert-warning mt-5">
+                    Please login as an admin to access Bookings management.
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="container py-5">
+                <div className="alert alert-danger mt-5">
+                    Access denied. Only ADMIN users can access this page.
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="container-fluid mt-4">
             <div className="row justify-content-center">
                 <div className="col-12 col-xl-10">
 
                     <h3 className="mb-3 text-center">Admin Booking Search</h3>
+                    {error && (
+                        <div className="alert alert-danger py-2">{error}</div>
+                    )}
 
                     {/* FILTERS */}
                     <div className="card p-3 mb-4">

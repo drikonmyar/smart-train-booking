@@ -23,12 +23,18 @@ const Login = () => {
 
             if (response.ok) {
                 const data = await response.json();
+                if (!data || !data.id) {
+                    setUser(null);
+                    setError('Invalid username or password');
+                    return;
+                }
                 setUser(data);
-                navigate('/');
+                navigate('/search-trains');
             } else {
-                setError('Invalid username or password');
+                const payload = await response.json().catch(() => null);
+                setError(payload?.message || 'Invalid username or password');
             }
-        } catch (err) {
+        } catch {
             setError('Server error. Please try again.');
         }
     };

@@ -1,13 +1,15 @@
 package com.booking.repository;
 
 import com.booking.entity.Train;
+import com.booking.entity.TrainStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface TrainRepository extends JpaRepository<Train, Long> {
+public interface TrainRepository extends JpaRepository<Train, Long>, JpaSpecificationExecutor<Train> {
     @Query("""
             SELECT DISTINCT t FROM Train t
             LEFT JOIN t.routeStations sourceStop
@@ -26,8 +28,14 @@ public interface TrainRepository extends JpaRepository<Train, Long> {
                       AND LOWER(t.destinationStation.name) = LOWER(:destinationName)
                   )
               )
+              AND t.status = :activeStatus
             """)
     List<Train> findTrainsByRoute(
             @Param("sourceName") String sourceName,
-            @Param("destinationName") String destinationName);
+            @Param("destinationName") String destinationName,
+            @Param("activeStatus") TrainStatus activeStatus);
+
+    boolean existsByTrainNumber(String trainNumber);
+
+    boolean existsByTrainNumberAndIdNot(String trainNumber, Long id);
 }

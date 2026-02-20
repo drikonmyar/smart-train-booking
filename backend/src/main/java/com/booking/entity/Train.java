@@ -41,6 +41,10 @@ public class Train extends BaseEntity {
     @Column(nullable = false)
     private Integer totalSeats;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TrainStatus status = TrainStatus.ACTIVE;
+
     @OneToMany(mappedBy = "train", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("stopOrder ASC")
     @ToString.Exclude

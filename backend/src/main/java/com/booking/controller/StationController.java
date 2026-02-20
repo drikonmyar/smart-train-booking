@@ -10,6 +10,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,14 +24,20 @@ public class StationController {
 
     @PostMapping("/create")
     public ResponseEntity<Station> createStation(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @RequestBody CreateStationRequest request) {
+        requireAdmin(userRole);
 
         Station station = stationService.createStation(request);
         return new ResponseEntity<>(station, HttpStatus.CREATED);
     }
 
     @PostMapping("/bulkcreate")
-    public ResponseEntity<List<Long>> createMultipleStations(@RequestBody List<CreateStationRequest> requests) {
+    public ResponseEntity<List<Long>> createMultipleStations(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @RequestBody List<CreateStationRequest> requests
+    ) {
+        requireAdmin(userRole);
         List<Long> stationIds = stationService.createMultipleStations(requests);
         return ResponseEntity.status(201).body(stationIds);
     }
@@ -50,10 +57,18 @@ public class StationController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Station> updateStation(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @PathVariable Long id,
             @RequestBody UpdateStationRequest request
     ) {
+        requireAdmin(userRole);
         Station updatedStation = stationService.updateStation(id, request);
         return ResponseEntity.ok(updatedStation);
+    }
+
+    private void requireAdmin(String userRole) {
+        if (userRole == null || !userRole.equalsIgnoreCase("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only ADMIN can access this resource");
+        }
     }
 }

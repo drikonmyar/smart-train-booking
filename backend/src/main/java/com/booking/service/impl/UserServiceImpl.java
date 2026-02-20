@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
         user.setUsername(request.getUsername());
         user.setPassword(request.getPassword()); // plain for now
         user.setPhone(request.getPhone());
+        user.setRole("USER");
 
         User savedUser = userRepository.save(user);
 
@@ -63,6 +64,7 @@ public class UserServiceImpl implements UserService {
         response.setFullName(user.getFullName());
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
+        response.setRole(user.getRole() == null || user.getRole().isBlank() ? "USER" : user.getRole());
 
         return response;
     }

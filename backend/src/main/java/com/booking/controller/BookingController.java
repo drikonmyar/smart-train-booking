@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -43,8 +44,16 @@ public class BookingController {
 
     @PostMapping("/getall")
     public List<AdminBookingResponse> searchBookings(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @RequestBody AdminBookingSearchRequest request) {
+        requireAdmin(userRole);
 
         return bookingService.searchBookings(request);
+    }
+
+    private void requireAdmin(String userRole) {
+        if (userRole == null || !userRole.equalsIgnoreCase("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only ADMIN can access this resource");
+        }
     }
 }

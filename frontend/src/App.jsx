@@ -1,6 +1,5 @@
 
-
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
 
 
@@ -10,36 +9,25 @@ import SearchTrains from './pages/SearchTrains';
 import MyBookings from './pages/MyBookings';
 import Bookings from './pages/Bookings';
 import Stations from './pages/Stations';
-
-function Home() {
-  return <h2 className="mt-4">Welcome to Smart Train Booking</h2>;
-}
-
-
-
-
-
-
-
-
-
-function Trains() {
-  return <h2 className="mt-4">Trains Management Page</h2>;
-}
+import Trains from './pages/Trains';
+import { useUser } from './context/UserContext';
 
 function App() {
+  const { user } = useUser();
+  const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
+
   return (
     <>
       <Navbar />
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={user ? <Navigate to="/search-trains" replace /> : <Navigate to="/login" replace />} />
+        <Route path="/login" element={user ? <Navigate to="/search-trains" replace /> : <Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/search-trains" element={<SearchTrains />} />
         <Route path="/stations" element={<Stations />} />
         <Route path="/trains" element={<Trains />} />
         <Route path="/bookings" element={<Bookings />} />
-        <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/my-bookings" element={user && !isAdmin ? <MyBookings /> : <Navigate to="/search-trains" replace />} />
       </Routes>
     </>
   );

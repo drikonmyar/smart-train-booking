@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useUser } from '../context/UserContext';
 
 const StationsPage = () => {
+    const { user } = useUser();
+    const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
+
     const [query, setQuery] = useState('');
     const [stations, setStations] = useState([]);
     const [filteredStations, setFilteredStations] = useState([]);
@@ -44,6 +48,7 @@ const StationsPage = () => {
         mf = modifiedFrom,
         mt = modifiedTo
     ) => {
+        if (!isAdmin) return;
         setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -67,14 +72,16 @@ const StationsPage = () => {
     };
 
     useEffect(() => {
+        if (!isAdmin) return;
         fetchStations();
-    }, []);
+    }, [isAdmin]);
 
     /* ---------------- FILTER LOGIC ---------------- */
 
     useEffect(() => {
+        if (!isAdmin) return;
         fetchStations();
-    }, [query, createdFrom, createdTo, modifiedFrom, modifiedTo]);
+    }, [isAdmin, query, createdFrom, createdTo, modifiedFrom, modifiedTo]);
 
     /* ---------------- CREATE STATION ---------------- */
 
@@ -88,7 +95,10 @@ const StationsPage = () => {
         try {
             const res = await fetch('/api/stations/create', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Role': user?.role || ''
+                },
                 body: JSON.stringify(newStation)
             });
 
@@ -118,7 +128,10 @@ const StationsPage = () => {
         try {
             const res = await fetch(`/api/stations/${editingStation.id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Role': user?.role || ''
+                },
                 body: JSON.stringify(editForm)
             });
 
@@ -130,6 +143,26 @@ const StationsPage = () => {
             alert('Failed to update station');
         }
     };
+
+    if (!user) {
+        return (
+            <div className="container py-5">
+                <div className="alert alert-warning mt-5">
+                    Please login as an admin to access Station management.
+                </div>
+            </div>
+        );
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="container py-5">
+                <div className="alert alert-danger mt-5">
+                    Access denied. Only ADMIN users can access this page.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{

@@ -4,6 +4,7 @@ import UserMenu from './UserMenu';
 
 export default function Navbar() {
     const { user } = useUser();
+    const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark fixed-top w-100">
             <div className="container-fluid">
@@ -34,18 +35,26 @@ export default function Navbar() {
                         <li className="nav-item">
                             <Link className="nav-link" to="/search-trains">Search Trains</Link>
                         </li>
-                        <li className="nav-item">
-                            <Link className="nav-link" to="/stations">Stations</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link" to="/trains">Trains</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link" to="/bookings">Bookings</Link>
-                        </li>
-                        <li className="nav-item">
-                            <Link className="nav-link" to="/my-bookings">My Bookings</Link>
-                        </li>
+                        {isAdmin && (
+                            <li className="nav-item">
+                                <Link className="nav-link" to="/stations">Stations</Link>
+                            </li>
+                        )}
+                        {isAdmin && (
+                            <li className="nav-item">
+                                <Link className="nav-link" to="/trains">Trains</Link>
+                            </li>
+                        )}
+                        {isAdmin && (
+                            <li className="nav-item">
+                                <Link className="nav-link" to="/bookings">Bookings</Link>
+                            </li>
+                        )}
+                        {user && !isAdmin && (
+                            <li className="nav-item">
+                                <Link className="nav-link" to="/my-bookings">My Bookings</Link>
+                            </li>
+                        )}
                         {user && <li className="nav-item ms-3"><UserMenu /></li>}
                     </ul>
                 </div>
