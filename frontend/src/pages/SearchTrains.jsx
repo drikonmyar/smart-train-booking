@@ -87,6 +87,18 @@ export default function SearchTrains() {
         setForm({ ...form, travelDate: date });
     };
 
+    const handleSwapStations = () => {
+        setForm((prev) => ({
+            ...prev,
+            sourceStationName: prev.destinationStationName,
+            destinationStationName: prev.sourceStationName
+        }));
+        setSourceSuggestions(destSuggestions);
+        setDestSuggestions(sourceSuggestions);
+        setShowSourceDropdown(false);
+        setShowDestDropdown(false);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -231,6 +243,18 @@ export default function SearchTrains() {
                                 })}
                             </ul>
                         )}
+                    </div>
+                    <div className="col-md-1 d-flex align-items-end">
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary w-100"
+                            onClick={handleSwapStations}
+                            aria-label="Swap source and destination stations"
+                            title="Swap source and destination"
+                            style={{ minHeight: '38px', fontSize: '1.5rem', lineHeight: 1 }}
+                        >
+                            ⇄
+                        </button>
                     </div>
                     <div className="col-md-3 position-relative" ref={destinationRef}>
                         <label className="form-label">Destination Station</label>

@@ -18,6 +18,17 @@ const EMPTY_FILTERS = {
     createdTo: null
 };
 
+const WEEK_DAYS = [
+    { key: 'MONDAY', label: 'M' },
+    { key: 'TUESDAY', label: 'T' },
+    { key: 'WEDNESDAY', label: 'W' },
+    { key: 'THURSDAY', label: 'T' },
+    { key: 'FRIDAY', label: 'F' },
+    { key: 'SATURDAY', label: 'S' },
+    { key: 'SUNDAY', label: 'S' }
+];
+const DEFAULT_RUNNING_DAYS = WEEK_DAYS.map((day) => day.key);
+
 const EMPTY_FORM = {
     trainNumber: '',
     trainName: '',
@@ -26,6 +37,8 @@ const EMPTY_FORM = {
     totalSeats: '',
     startTime: '',
     endTime: '',
+    journeyDurationMinutes: '',
+    runningDays: DEFAULT_RUNNING_DAYS,
     status: 'ACTIVE'
 };
 
@@ -74,10 +87,6 @@ export default function Trains() {
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [detailsError, setDetailsError] = useState('');
     const [selectedTrainDetails, setSelectedTrainDetails] = useState(null);
-
-    const [deleteModal, setDeleteModal] = useState(false);
-    const [deleteTrain, setDeleteTrain] = useState(null);
-    const [deleting, setDeleting] = useState(false);
 
     const [flash, setFlash] = useState(null);
     const sourceStationRef = useRef(null);
@@ -211,19 +220,9 @@ export default function Trains() {
         normalizeStationName(left) !== '' &&
         normalizeStationName(left) === normalizeStationName(right);
 
-    const weekDays = [
-        { key: 'MONDAY', label: 'M' },
-        { key: 'TUESDAY', label: 'T' },
-        { key: 'WEDNESDAY', label: 'W' },
-        { key: 'THURSDAY', label: 'T' },
-        { key: 'FRIDAY', label: 'F' },
-        { key: 'SATURDAY', label: 'S' },
-        { key: 'SUNDAY', label: 'S' }
-    ];
-
     const formatRunningDaysForCsv = (runningDays) => {
         const runningDaysSet = new Set(Array.isArray(runningDays) ? runningDays : []);
-        return weekDays
+        return WEEK_DAYS
             .filter((day) => runningDaysSet.has(day.key))
             .map((day) => day.label)
             .join(' ');
@@ -234,7 +233,7 @@ export default function Trains() {
 
         return (
             <span className="d-inline-flex flex-wrap gap-1 align-items-center">
-                {weekDays.map((day, index) => (
+                {WEEK_DAYS.map((day, index) => (
                     <span
                         key={`${day.key}-${index}`}
                         className={`badge rounded-pill ${runningDaysSet.has(day.key)
@@ -377,7 +376,10 @@ export default function Trains() {
     }, [isAdmin, fetchTrains]);
 
     const resetForm = () => {
-        setFormData(EMPTY_FORM);
+        setFormData({
+            ...EMPTY_FORM,
+            runningDays: [...DEFAULT_RUNNING_DAYS]
+        });
         setLockedJourneyDurationMinutes(null);
         setSourceStationInput('');
         setDestinationStationInput('');
@@ -435,6 +437,12 @@ export default function Trains() {
                 totalSeats: details.totalSeats ?? '',
                 startTime: startTimeInput,
                 endTime: derivedEndTime,
+                journeyDurationMinutes: Number.isInteger(resolvedDuration) && resolvedDuration > 0
+                    ? String(resolvedDuration)
+                    : '',
+                runningDays: Array.isArray(details.runningDays) && details.runningDays.length > 0
+                    ? details.runningDays
+                    : [...DEFAULT_RUNNING_DAYS],
                 status: details.status || 'ACTIVE'
             });
             setLockedJourneyDurationMinutes(
@@ -462,8 +470,22 @@ export default function Trains() {
         if (editingTrainId && Number.isInteger(lockedJourneyDurationMinutes) && lockedJourneyDurationMinutes > 0) {
             return lockedJourneyDurationMinutes;
         }
+        const addModeDuration = Number(formData.journeyDurationMinutes);
+        if (
+            !editingTrainId &&
+            Number.isInteger(addModeDuration) &&
+            addModeDuration > 0
+        ) {
+            return addModeDuration;
+        }
         return calculateDurationFromTimes(formData.startTime, formData.endTime);
-    }, [editingTrainId, lockedJourneyDurationMinutes, formData.startTime, formData.endTime]);
+    }, [
+        editingTrainId,
+        lockedJourneyDurationMinutes,
+        formData.startTime,
+        formData.endTime,
+        formData.journeyDurationMinutes
+    ]);
 
     const formArrivalDayOffset = useMemo(
         () => calculateArrivalDayOffset(formData.startTime, effectiveJourneyDurationMinutes),
@@ -487,22 +509,40 @@ export default function Trains() {
         if (!formData.startTime) {
             return 'Start time is required';
         }
+        if (!Array.isArray(formData.runningDays) || formData.runningDays.length === 0) {
+            return 'Select at least one running day';
+        }
 
         if (editingTrainId) {
             if (!Number.isInteger(effectiveJourneyDurationMinutes) || effectiveJourneyDurationMinutes <= 0) {
                 return 'Unable to resolve journey duration for this train';
             }
         } else {
-            if (!formData.endTime) {
-                return 'End time is required';
-            }
-
-            if (formData.startTime === formData.endTime) {
-                return 'Start and end time cannot be same';
+            const journeyDurationMinutes = Number(formData.journeyDurationMinutes);
+            if (!Number.isInteger(journeyDurationMinutes) || journeyDurationMinutes <= 0) {
+                return 'Total duration (in minutes) must be greater than zero';
             }
         }
 
         return null;
+    };
+
+    const toggleRunningDay = (dayKey) => {
+        setFormData((prev) => {
+            const current = new Set(Array.isArray(prev.runningDays) ? prev.runningDays : []);
+            if (current.has(dayKey)) {
+                current.delete(dayKey);
+            } else {
+                current.add(dayKey);
+            }
+
+            return {
+                ...prev,
+                runningDays: WEEK_DAYS
+                    .map((day) => day.key)
+                    .filter((key) => current.has(key))
+            };
+        });
     };
 
     const handleSaveTrain = async () => {
@@ -522,7 +562,12 @@ export default function Trains() {
             destinationStationId: Number(formData.destinationStationId),
             totalSeats: Number(formData.totalSeats),
             startTime: toApiTime(formData.startTime),
-            endTime: toApiTime(formData.endTime),
+            endTime: toApiTime(formData.endTime || deriveEndTimeFromDuration(
+                formData.startTime,
+                effectiveJourneyDurationMinutes
+            )),
+            journeyDurationMinutes: !editingTrainId ? effectiveJourneyDurationMinutes : null,
+            runningDays: formData.runningDays,
             status: formData.status || 'ACTIVE'
         };
 
@@ -547,34 +592,6 @@ export default function Trains() {
             setFormError(extractErrorMessage(error, 'Failed to save train'));
         } finally {
             setSubmitting(false);
-        }
-    };
-
-    const openDeleteModal = (event, train) => {
-        event.stopPropagation();
-        setDeleteTrain(train);
-        setDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!deleteTrain) return;
-
-        setDeleting(true);
-        try {
-            await api.delete(`/admin/trains/${deleteTrain.id}`, {
-                headers: adminHeaders
-            });
-            setFlash({ type: 'success', message: 'Train marked as inactive' });
-            setDeleteModal(false);
-            setDeleteTrain(null);
-            await fetchTrains();
-        } catch (error) {
-            setFlash({
-                type: 'danger',
-                message: extractErrorMessage(error, 'Failed to delete train')
-            });
-        } finally {
-            setDeleting(false);
         }
     };
 
@@ -1036,7 +1053,7 @@ export default function Trains() {
                                         Created At {sortLabel('createdAt')}
                                     </th>
                                     <th>Modified At</th>
-                                    <th style={{ width: 130, minWidth: 130 }}>Actions</th>
+                                    <th style={{ width: 82, minWidth: 82 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1070,23 +1087,16 @@ export default function Trains() {
                                             <td>{renderEndTimeWithOffset(train.endTime, train.arrivalDayOffset)}</td>
                                             <td>{formatDateTime(train.createdAt)}</td>
                                             <td>{formatDateTime(train.modifiedAt)}</td>
-                                            <td>
-                                                <div className="d-flex gap-1">
-                                                    <button
-                                                        className="btn btn-sm btn-outline-primary"
-                                                        onClick={(event) => openEditModal(event, train.id)}
-                                                        disabled={submitting}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-outline-danger"
-                                                        onClick={(event) => openDeleteModal(event, train)}
-                                                        disabled={deleting}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
+                                            <td className="text-center">
+                                                <button
+                                                    className="btn btn-sm btn-outline-secondary"
+                                                    onClick={(event) => openEditModal(event, train.id)}
+                                                    disabled={submitting}
+                                                    title="Edit train"
+                                                    aria-label="Edit train"
+                                                >
+                                                    ✏️
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -1333,14 +1343,14 @@ export default function Trains() {
                                                         startTime: nextStartTime
                                                     };
 
-                                                    if (
-                                                        editingTrainId &&
-                                                        Number.isInteger(lockedJourneyDurationMinutes) &&
-                                                        lockedJourneyDurationMinutes > 0
-                                                    ) {
+                                                    const durationForAuto = editingTrainId
+                                                        ? lockedJourneyDurationMinutes
+                                                        : Number(prev.journeyDurationMinutes);
+
+                                                    if (Number.isInteger(durationForAuto) && durationForAuto > 0) {
                                                         nextData.endTime = deriveEndTimeFromDuration(
                                                             nextStartTime,
-                                                            lockedJourneyDurationMinutes
+                                                            durationForAuto
                                                         );
                                                     }
 
@@ -1349,30 +1359,63 @@ export default function Trains() {
                                             }}
                                         />
                                     </div>
+                                    {!editingTrainId && (
+                                        <div className="col-md-4">
+                                            <label className="form-label">Total Duration (Minutes)</label>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                min="1"
+                                                value={formData.journeyDurationMinutes}
+                                                onChange={(event) => {
+                                                    const raw = event.target.value;
+                                                    const sanitized = raw.replace(/[^0-9]/g, '');
+                                                    setFormData((prev) => {
+                                                        const nextData = {
+                                                            ...prev,
+                                                            journeyDurationMinutes: sanitized
+                                                        };
+
+                                                        const durationMinutes = Number(sanitized);
+                                                        if (
+                                                            Number.isInteger(durationMinutes) &&
+                                                            durationMinutes > 0 &&
+                                                            prev.startTime
+                                                        ) {
+                                                            nextData.endTime = deriveEndTimeFromDuration(
+                                                                prev.startTime,
+                                                                durationMinutes
+                                                            );
+                                                        } else if (!sanitized) {
+                                                            nextData.endTime = '';
+                                                        }
+
+                                                        return nextData;
+                                                    });
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="col-md-4">
                                         <label className="form-label">End Time</label>
                                         <input
                                             type="time"
                                             className="form-control"
                                             value={formData.endTime}
-                                            disabled={Boolean(editingTrainId)}
-                                            readOnly={Boolean(editingTrainId)}
-                                            onChange={(event) => {
-                                                if (editingTrainId) return;
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    endTime: event.target.value
-                                                }));
-                                            }}
+                                            disabled
+                                            readOnly
                                         />
                                         {formArrivalDayOffset > 0 && (
                                             <div className="form-text text-success fw-semibold">
                                                 +{formArrivalDayOffset} day{formArrivalDayOffset === 1 ? '' : 's'}
                                             </div>
                                         )}
+                                        <div className="form-text text-muted">
+                                            Auto-calculated from {editingTrainId ? 'existing' : 'provided'} journey duration.
+                                        </div>
                                         {editingTrainId && (
                                             <div className="form-text text-muted">
-                                                Auto-calculated from total journey duration.
+                                                To change duration, create a new route timing.
                                             </div>
                                         )}
                                     </div>
@@ -1389,6 +1432,33 @@ export default function Trains() {
                                             <option value="ACTIVE">ACTIVE</option>
                                             <option value="INACTIVE">INACTIVE</option>
                                         </select>
+                                    </div>
+                                    <div className="col-12">
+                                        <label className="form-label">Running Days</label>
+                                        <div className="d-flex flex-wrap gap-2">
+                                            {WEEK_DAYS.map((day, index) => {
+                                                const selected = (formData.runningDays || []).includes(day.key);
+                                                return (
+                                                    <button
+                                                        key={`${day.key}-${index}`}
+                                                        type="button"
+                                                        className={`badge rounded-pill border-0 ${selected ? 'bg-success' : 'bg-light text-secondary border'}`}
+                                                        style={{
+                                                            minWidth: 34,
+                                                            height: 30,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        title={day.key}
+                                                        onClick={() => toggleRunningDay(day.key)}
+                                                    >
+                                                        {day.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="form-text">
+                                            Click to add/remove train running days.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1408,51 +1478,6 @@ export default function Trains() {
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {deleteModal && (
-                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.45)' }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Confirm Delete</h5>
-                                <button
-                                    className="btn-close"
-                                    type="button"
-                                    onClick={() => {
-                                        setDeleteModal(false);
-                                        setDeleteTrain(null);
-                                    }}
-                                />
-                            </div>
-                            <div className="modal-body">
-                                Are you sure you want to delete train{' '}
-                                <strong>{deleteTrain?.trainNumber}</strong>?
-                                <div className="small text-muted mt-2">
-                                    Soft delete will set train status to INACTIVE.
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setDeleteModal(false);
-                                        setDeleteTrain(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={confirmDelete}
-                                    disabled={deleting}
-                                >
-                                    {deleting ? 'Deleting...' : 'Delete'}
                                 </button>
                             </div>
                         </div>

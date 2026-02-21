@@ -232,6 +232,7 @@ public class TrainServiceImpl implements TrainService {
         if (saved.getStatus() == TrainStatus.INACTIVE) {
             terminateActiveBookingsForInactiveTrain(saved);
         } else {
+            terminateBookingsForNonRunningDays(saved);
             syncSeatAvailabilityWithUpdatedCapacity(saved);
         }
         return mapToAdminResponse(saved);
@@ -399,10 +400,17 @@ public class TrainServiceImpl implements TrainService {
             }
             minutesFromSource = fixedDurationMinutes;
         } else {
-            if (request.getEndTime() == null) {
-                throw new RuntimeException("End time is required");
+            if (request.getJourneyDurationMinutes() != null) {
+                minutesFromSource = request.getJourneyDurationMinutes();
+                if (minutesFromSource <= 0) {
+                    throw new RuntimeException("Journey duration must be greater than zero");
+                }
+            } else {
+                if (request.getEndTime() == null) {
+                    throw new RuntimeException("End time is required");
+                }
+                minutesFromSource = calculateDurationMinutes(request.getStartTime(), request.getEndTime());
             }
-            minutesFromSource = calculateDurationMinutes(request.getStartTime(), request.getEndTime());
         }
 
         train.setTrainName(normalizeRequired(request.getTrainName(), "Train name is required"));
@@ -411,8 +419,17 @@ public class TrainServiceImpl implements TrainService {
         train.setDepartureTime(request.getStartTime());
         train.setTotalSeats(request.getTotalSeats());
         train.setStatus(request.getStatus() == null ? TrainStatus.ACTIVE : request.getStatus());
-        if (train.getRunningDays() == null || train.getRunningDays().isEmpty()) {
-            train.setRunningDays(EnumSet.allOf(DayOfWeek.class));
+
+        Set<DayOfWeek> requestedRunningDays = request.getRunningDays();
+        if (requestedRunningDays == null) {
+            if (train.getRunningDays() == null || train.getRunningDays().isEmpty()) {
+                train.setRunningDays(EnumSet.allOf(DayOfWeek.class));
+            }
+        } else {
+            if (requestedRunningDays.isEmpty()) {
+                throw new RuntimeException("At least one running day must be selected");
+            }
+            train.setRunningDays(EnumSet.copyOf(requestedRunningDays));
         }
 
         replaceRouteStations(train, sourceStation, destinationStation, minutesFromSource);
@@ -439,6 +456,34 @@ public class TrainServiceImpl implements TrainService {
         if (!availabilities.isEmpty()) {
             availabilities.forEach(availability -> availability.setAvailableSeats(train.getTotalSeats()));
             seatAvailabilityRepository.saveAll(availabilities);
+        }
+    }
+
+    private void terminateBookingsForNonRunningDays(Train train) {
+        List<Booking> activeBookings = bookingRepository.findByTrainIdAndStatusIgnoreCase(
+                train.getId(),
+                BOOKING_STATUS_BOOKED
+        );
+        if (activeBookings.isEmpty()) {
+            return;
+        }
+
+        Set<DayOfWeek> runningDays = train.getRunningDays() == null
+                ? Set.of()
+                : train.getRunningDays();
+
+        List<Booking> bookingsToTerminate = new ArrayList<>();
+        for (Booking booking : activeBookings) {
+            LocalDate originServiceDate = resolveOriginServiceDateForBooking(train, booking);
+            DayOfWeek originDay = originServiceDate.getDayOfWeek();
+            if (!runningDays.contains(originDay)) {
+                booking.setStatus(BOOKING_STATUS_TERMINATED);
+                bookingsToTerminate.add(booking);
+            }
+        }
+
+        if (!bookingsToTerminate.isEmpty()) {
+            bookingRepository.saveAll(bookingsToTerminate);
         }
     }
 

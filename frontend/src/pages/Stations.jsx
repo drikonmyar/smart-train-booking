@@ -320,7 +320,7 @@ const StationsPage = () => {
                                         <td>{formatDateTime(s.modifiedDate)}</td>
                                         <td className="text-center">
                                             <button
-                                                className="btn btn-sm btn-outline-primary"
+                                                className="btn btn-sm btn-outline-secondary"
                                                 onClick={() => {
                                                     setEditingStation(s);
                                                     setEditForm({ name: s.name, code: s.code });
