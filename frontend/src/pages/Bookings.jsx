@@ -29,6 +29,8 @@ const BookingsPage = () => {
     const [destSuggestions, setDestSuggestions] = useState([]);
     const [showSourceDropdown, setShowSourceDropdown] = useState(false);
     const [showDestDropdown, setShowDestDropdown] = useState(false);
+    const [sourceHighlightedIndex, setSourceHighlightedIndex] = useState(-1);
+    const [destHighlightedIndex, setDestHighlightedIndex] = useState(-1);
 
     const sourceRef = useRef(null);
     const destRef = useRef(null);
@@ -47,6 +49,100 @@ const BookingsPage = () => {
             setter(data);
         } catch (err) {
             console.error('Station search failed', err);
+        }
+    };
+
+    const getNextHighlightIndex = (currentIndex, length, direction) => {
+        if (!length) return -1;
+        if (currentIndex < 0) {
+            return direction > 0 ? 0 : length - 1;
+        }
+        return (currentIndex + direction + length) % length;
+    };
+
+    const handleSourceKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowSourceDropdown(true);
+            if (sourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, setSourceSuggestions);
+                return;
+            }
+            setSourceHighlightedIndex((prev) =>
+                getNextHighlightIndex(prev, sourceSuggestions.length, 1)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowSourceDropdown(true);
+            if (sourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, setSourceSuggestions);
+                return;
+            }
+            setSourceHighlightedIndex((prev) =>
+                getNextHighlightIndex(prev, sourceSuggestions.length, -1)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showSourceDropdown && sourceHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = sourceSuggestions[sourceHighlightedIndex];
+            if (!station) return;
+            setFilters((prev) => ({ ...prev, sourceStation: station.name }));
+            setShowSourceDropdown(false);
+            setSourceHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowSourceDropdown(false);
+            setSourceHighlightedIndex(-1);
+        }
+    };
+
+    const handleDestinationKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowDestDropdown(true);
+            if (destSuggestions.length === 0) {
+                searchStations(filters.destinationStation, setDestSuggestions);
+                return;
+            }
+            setDestHighlightedIndex((prev) =>
+                getNextHighlightIndex(prev, destSuggestions.length, 1)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowDestDropdown(true);
+            if (destSuggestions.length === 0) {
+                searchStations(filters.destinationStation, setDestSuggestions);
+                return;
+            }
+            setDestHighlightedIndex((prev) =>
+                getNextHighlightIndex(prev, destSuggestions.length, -1)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showDestDropdown && destHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = destSuggestions[destHighlightedIndex];
+            if (!station) return;
+            setFilters((prev) => ({ ...prev, destinationStation: station.name }));
+            setShowDestDropdown(false);
+            setDestHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowDestDropdown(false);
+            setDestHighlightedIndex(-1);
         }
     };
 
@@ -116,9 +212,11 @@ const BookingsPage = () => {
         const handleClickOutside = (e) => {
             if (sourceRef.current && !sourceRef.current.contains(e.target)) {
                 setShowSourceDropdown(false);
+                setSourceHighlightedIndex(-1);
             }
             if (destRef.current && !destRef.current.contains(e.target)) {
                 setShowDestDropdown(false);
+                setDestHighlightedIndex(-1);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -270,13 +368,16 @@ const BookingsPage = () => {
                                     placeholder="Type source station"
                                     onFocus={() => {
                                         setShowSourceDropdown(true);
+                                        setSourceHighlightedIndex(-1);
                                         searchStations(filters.sourceStation, setSourceSuggestions);
                                     }}
                                     onChange={(e) => {
                                         handleChange(e);
                                         setShowSourceDropdown(true);
+                                        setSourceHighlightedIndex(-1);
                                         searchStations(e.target.value, setSourceSuggestions);
                                     }}
+                                    onKeyDown={handleSourceKeyDown}
                                 />
 
                                 {showSourceDropdown && sourceSuggestions.length > 0 && (
@@ -293,19 +394,21 @@ const BookingsPage = () => {
                                             zIndex: 1000
                                         }}
                                     >
-                                        {sourceSuggestions.map(s => (
+                                        {sourceSuggestions.map((s, index) => (
                                             <li key={s.id}>
                                                 <button
                                                     type="button"
-                                                    className="dropdown-item"
+                                                    className={`dropdown-item${index === sourceHighlightedIndex ? ' active' : ''}`}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
                                                     }}
+                                                    onMouseEnter={() => setSourceHighlightedIndex(index)}
                                                     onClick={() => {
                                                         setFilters(prev => ({ ...prev, sourceStation: s.name }));
                                                         setShowSourceDropdown(false);
+                                                        setSourceHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {s.name} ({s.code})
@@ -326,13 +429,16 @@ const BookingsPage = () => {
                                     placeholder="Type destination station"
                                     onFocus={() => {
                                         setShowDestDropdown(true);
+                                        setDestHighlightedIndex(-1);
                                         searchStations(filters.destinationStation, setDestSuggestions);
                                     }}
                                     onChange={(e) => {
                                         handleChange(e);
                                         setShowDestDropdown(true);
+                                        setDestHighlightedIndex(-1);
                                         searchStations(e.target.value, setDestSuggestions);
                                     }}
+                                    onKeyDown={handleDestinationKeyDown}
                                 />
 
                                 {showDestDropdown && destSuggestions.length > 0 && (
@@ -349,19 +455,21 @@ const BookingsPage = () => {
                                             zIndex: 1000
                                         }}
                                     >
-                                        {destSuggestions.map(s => (
+                                        {destSuggestions.map((s, index) => (
                                             <li key={s.id}>
                                                 <button
                                                     type="button"
-                                                    className="dropdown-item"
+                                                    className={`dropdown-item${index === destHighlightedIndex ? ' active' : ''}`}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
                                                     }}
+                                                    onMouseEnter={() => setDestHighlightedIndex(index)}
                                                     onClick={() => {
                                                         setFilters(prev => ({ ...prev, destinationStation: s.name }));
                                                         setShowDestDropdown(false);
+                                                        setDestHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {s.name} ({s.code})

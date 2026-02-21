@@ -18,6 +18,17 @@ const EMPTY_FILTERS = {
     createdTo: null
 };
 
+const WEEK_DAYS = [
+    { key: 'MONDAY', label: 'M' },
+    { key: 'TUESDAY', label: 'T' },
+    { key: 'WEDNESDAY', label: 'W' },
+    { key: 'THURSDAY', label: 'T' },
+    { key: 'FRIDAY', label: 'F' },
+    { key: 'SATURDAY', label: 'S' },
+    { key: 'SUNDAY', label: 'S' }
+];
+const DEFAULT_RUNNING_DAYS = WEEK_DAYS.map((day) => day.key);
+
 const EMPTY_FORM = {
     trainNumber: '',
     trainName: '',
@@ -26,6 +37,8 @@ const EMPTY_FORM = {
     totalSeats: '',
     startTime: '',
     endTime: '',
+    journeyDurationMinutes: '',
+    runningDays: DEFAULT_RUNNING_DAYS,
     status: 'ACTIVE'
 };
 
@@ -42,6 +55,8 @@ export default function Trains() {
     const [filterDestinationSuggestions, setFilterDestinationSuggestions] = useState([]);
     const [showFilterSourceSuggestions, setShowFilterSourceSuggestions] = useState(false);
     const [showFilterDestinationSuggestions, setShowFilterDestinationSuggestions] = useState(false);
+    const [filterSourceHighlightedIndex, setFilterSourceHighlightedIndex] = useState(-1);
+    const [filterDestinationHighlightedIndex, setFilterDestinationHighlightedIndex] = useState(-1);
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(10);
@@ -66,6 +81,8 @@ export default function Trains() {
     const [destinationStationSuggestions, setDestinationStationSuggestions] = useState([]);
     const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
     const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
+    const [sourceSuggestionHighlightedIndex, setSourceSuggestionHighlightedIndex] = useState(-1);
+    const [destinationSuggestionHighlightedIndex, setDestinationSuggestionHighlightedIndex] = useState(-1);
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [lockedJourneyDurationMinutes, setLockedJourneyDurationMinutes] = useState(null);
@@ -74,10 +91,6 @@ export default function Trains() {
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [detailsError, setDetailsError] = useState('');
     const [selectedTrainDetails, setSelectedTrainDetails] = useState(null);
-
-    const [deleteModal, setDeleteModal] = useState(false);
-    const [deleteTrain, setDeleteTrain] = useState(null);
-    const [deleting, setDeleting] = useState(false);
 
     const [flash, setFlash] = useState(null);
     const sourceStationRef = useRef(null);
@@ -103,9 +116,11 @@ export default function Trains() {
         const handleClickOutside = (event) => {
             if (sourceStationRef.current && !sourceStationRef.current.contains(event.target)) {
                 setShowSourceSuggestions(false);
+                setSourceSuggestionHighlightedIndex(-1);
             }
             if (destinationStationRef.current && !destinationStationRef.current.contains(event.target)) {
                 setShowDestinationSuggestions(false);
+                setDestinationSuggestionHighlightedIndex(-1);
             }
         };
 
@@ -117,9 +132,11 @@ export default function Trains() {
         const handleFilterOutsideClick = (event) => {
             if (filterSourceRef.current && !filterSourceRef.current.contains(event.target)) {
                 setShowFilterSourceSuggestions(false);
+                setFilterSourceHighlightedIndex(-1);
             }
             if (filterDestinationRef.current && !filterDestinationRef.current.contains(event.target)) {
                 setShowFilterDestinationSuggestions(false);
+                setFilterDestinationHighlightedIndex(-1);
             }
         };
 
@@ -211,19 +228,9 @@ export default function Trains() {
         normalizeStationName(left) !== '' &&
         normalizeStationName(left) === normalizeStationName(right);
 
-    const weekDays = [
-        { key: 'MONDAY', label: 'M' },
-        { key: 'TUESDAY', label: 'T' },
-        { key: 'WEDNESDAY', label: 'W' },
-        { key: 'THURSDAY', label: 'T' },
-        { key: 'FRIDAY', label: 'F' },
-        { key: 'SATURDAY', label: 'S' },
-        { key: 'SUNDAY', label: 'S' }
-    ];
-
     const formatRunningDaysForCsv = (runningDays) => {
         const runningDaysSet = new Set(Array.isArray(runningDays) ? runningDays : []);
-        return weekDays
+        return WEEK_DAYS
             .filter((day) => runningDaysSet.has(day.key))
             .map((day) => day.label)
             .join(' ');
@@ -234,7 +241,7 @@ export default function Trains() {
 
         return (
             <span className="d-inline-flex flex-wrap gap-1 align-items-center">
-                {weekDays.map((day, index) => (
+                {WEEK_DAYS.map((day, index) => (
                     <span
                         key={`${day.key}-${index}`}
                         className={`badge rounded-pill ${runningDaysSet.has(day.key)
@@ -310,6 +317,246 @@ export default function Trains() {
         }
     }, []);
 
+    const isFilterSourceSuggestionDisabled = (station) =>
+        isSameStationName(station?.name, filters.destinationStation);
+
+    const isFilterDestinationSuggestionDisabled = (station) =>
+        isSameStationName(station?.name, filters.sourceStation);
+
+    const isSourceSuggestionDisabled = (station) =>
+        String(station?.id) === String(formData.destinationStationId);
+
+    const isDestinationSuggestionDisabled = (station) =>
+        String(station?.id) === String(formData.sourceStationId);
+
+    const findNextEnabledIndex = (suggestions, currentIndex, direction, isDisabledFn) => {
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            return -1;
+        }
+
+        let nextIndex = currentIndex;
+        if (nextIndex < 0) {
+            nextIndex = direction > 0 ? -1 : 0;
+        }
+        for (let i = 0; i < suggestions.length; i += 1) {
+            nextIndex = (nextIndex + direction + suggestions.length) % suggestions.length;
+            if (!isDisabledFn(suggestions[nextIndex])) {
+                return nextIndex;
+            }
+        }
+        return -1;
+    };
+
+    const handleFilterSourceKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowFilterSourceSuggestions(true);
+            if (filterSourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
+                return;
+            }
+            setFilterSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterSourceSuggestions, prev, 1, isFilterSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowFilterSourceSuggestions(true);
+            if (filterSourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
+                return;
+            }
+            setFilterSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterSourceSuggestions, prev, -1, isFilterSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showFilterSourceSuggestions && filterSourceHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = filterSourceSuggestions[filterSourceHighlightedIndex];
+            if (!station || isFilterSourceSuggestionDisabled(station)) {
+                return;
+            }
+            setFilters((prev) => ({
+                ...prev,
+                sourceStation: station.name
+            }));
+            setShowFilterSourceSuggestions(false);
+            setFilterSourceHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowFilterSourceSuggestions(false);
+            setFilterSourceHighlightedIndex(-1);
+        }
+    };
+
+    const handleFilterDestinationKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowFilterDestinationSuggestions(true);
+            if (filterDestinationSuggestions.length === 0) {
+                searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
+                return;
+            }
+            setFilterDestinationHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterDestinationSuggestions, prev, 1, isFilterDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowFilterDestinationSuggestions(true);
+            if (filterDestinationSuggestions.length === 0) {
+                searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
+                return;
+            }
+            setFilterDestinationHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterDestinationSuggestions, prev, -1, isFilterDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showFilterDestinationSuggestions && filterDestinationHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = filterDestinationSuggestions[filterDestinationHighlightedIndex];
+            if (!station || isFilterDestinationSuggestionDisabled(station)) {
+                return;
+            }
+            setFilters((prev) => ({
+                ...prev,
+                destinationStation: station.name
+            }));
+            setShowFilterDestinationSuggestions(false);
+            setFilterDestinationHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowFilterDestinationSuggestions(false);
+            setFilterDestinationHighlightedIndex(-1);
+        }
+    };
+
+    const handleSourceKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowSourceSuggestions(true);
+            if (sourceStationSuggestions.length === 0) {
+                searchStations(
+                    sourceStationInput,
+                    formData.destinationStationId,
+                    setSourceStationSuggestions
+                );
+                return;
+            }
+            setSourceSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceStationSuggestions, prev, 1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowSourceSuggestions(true);
+            if (sourceStationSuggestions.length === 0) {
+                searchStations(
+                    sourceStationInput,
+                    formData.destinationStationId,
+                    setSourceStationSuggestions
+                );
+                return;
+            }
+            setSourceSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceStationSuggestions, prev, -1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showSourceSuggestions && sourceSuggestionHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = sourceStationSuggestions[sourceSuggestionHighlightedIndex];
+            if (!station || isSourceSuggestionDisabled(station)) {
+                return;
+            }
+            setSourceStationInput(station.name);
+            setFormData((prev) => ({
+                ...prev,
+                sourceStationId: String(station.id)
+            }));
+            setShowSourceSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowSourceSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+        }
+    };
+
+    const handleDestinationKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowDestinationSuggestions(true);
+            if (destinationStationSuggestions.length === 0) {
+                searchStations(
+                    destinationStationInput,
+                    formData.sourceStationId,
+                    setDestinationStationSuggestions
+                );
+                return;
+            }
+            setDestinationSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(destinationStationSuggestions, prev, 1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowDestinationSuggestions(true);
+            if (destinationStationSuggestions.length === 0) {
+                searchStations(
+                    destinationStationInput,
+                    formData.sourceStationId,
+                    setDestinationStationSuggestions
+                );
+                return;
+            }
+            setDestinationSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(destinationStationSuggestions, prev, -1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showDestinationSuggestions && destinationSuggestionHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = destinationStationSuggestions[destinationSuggestionHighlightedIndex];
+            if (!station || isDestinationSuggestionDisabled(station)) {
+                return;
+            }
+            setDestinationStationInput(station.name);
+            setFormData((prev) => ({
+                ...prev,
+                destinationStationId: String(station.id)
+            }));
+            setShowDestinationSuggestions(false);
+            setDestinationSuggestionHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowDestinationSuggestions(false);
+            setDestinationSuggestionHighlightedIndex(-1);
+        }
+    };
+
     const fetchTrains = useCallback(async () => {
         setLoading(true);
         setTableError('');
@@ -377,7 +624,10 @@ export default function Trains() {
     }, [isAdmin, fetchTrains]);
 
     const resetForm = () => {
-        setFormData(EMPTY_FORM);
+        setFormData({
+            ...EMPTY_FORM,
+            runningDays: [...DEFAULT_RUNNING_DAYS]
+        });
         setLockedJourneyDurationMinutes(null);
         setSourceStationInput('');
         setDestinationStationInput('');
@@ -385,6 +635,8 @@ export default function Trains() {
         setDestinationStationSuggestions([]);
         setShowSourceSuggestions(false);
         setShowDestinationSuggestions(false);
+        setSourceSuggestionHighlightedIndex(-1);
+        setDestinationSuggestionHighlightedIndex(-1);
         setFormError('');
         setEditingTrainId(null);
     };
@@ -435,6 +687,12 @@ export default function Trains() {
                 totalSeats: details.totalSeats ?? '',
                 startTime: startTimeInput,
                 endTime: derivedEndTime,
+                journeyDurationMinutes: Number.isInteger(resolvedDuration) && resolvedDuration > 0
+                    ? String(resolvedDuration)
+                    : '',
+                runningDays: Array.isArray(details.runningDays) && details.runningDays.length > 0
+                    ? details.runningDays
+                    : [...DEFAULT_RUNNING_DAYS],
                 status: details.status || 'ACTIVE'
             });
             setLockedJourneyDurationMinutes(
@@ -446,6 +704,8 @@ export default function Trains() {
             setDestinationStationSuggestions([]);
             setShowSourceSuggestions(false);
             setShowDestinationSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+            setDestinationSuggestionHighlightedIndex(-1);
             setEditingTrainId(trainId);
             setShowFormModal(true);
         } catch (error) {
@@ -462,8 +722,22 @@ export default function Trains() {
         if (editingTrainId && Number.isInteger(lockedJourneyDurationMinutes) && lockedJourneyDurationMinutes > 0) {
             return lockedJourneyDurationMinutes;
         }
+        const addModeDuration = Number(formData.journeyDurationMinutes);
+        if (
+            !editingTrainId &&
+            Number.isInteger(addModeDuration) &&
+            addModeDuration > 0
+        ) {
+            return addModeDuration;
+        }
         return calculateDurationFromTimes(formData.startTime, formData.endTime);
-    }, [editingTrainId, lockedJourneyDurationMinutes, formData.startTime, formData.endTime]);
+    }, [
+        editingTrainId,
+        lockedJourneyDurationMinutes,
+        formData.startTime,
+        formData.endTime,
+        formData.journeyDurationMinutes
+    ]);
 
     const formArrivalDayOffset = useMemo(
         () => calculateArrivalDayOffset(formData.startTime, effectiveJourneyDurationMinutes),
@@ -487,22 +761,40 @@ export default function Trains() {
         if (!formData.startTime) {
             return 'Start time is required';
         }
+        if (!Array.isArray(formData.runningDays) || formData.runningDays.length === 0) {
+            return 'Select at least one running day';
+        }
 
         if (editingTrainId) {
             if (!Number.isInteger(effectiveJourneyDurationMinutes) || effectiveJourneyDurationMinutes <= 0) {
                 return 'Unable to resolve journey duration for this train';
             }
         } else {
-            if (!formData.endTime) {
-                return 'End time is required';
-            }
-
-            if (formData.startTime === formData.endTime) {
-                return 'Start and end time cannot be same';
+            const journeyDurationMinutes = Number(formData.journeyDurationMinutes);
+            if (!Number.isInteger(journeyDurationMinutes) || journeyDurationMinutes <= 0) {
+                return 'Total duration (in minutes) must be greater than zero';
             }
         }
 
         return null;
+    };
+
+    const toggleRunningDay = (dayKey) => {
+        setFormData((prev) => {
+            const current = new Set(Array.isArray(prev.runningDays) ? prev.runningDays : []);
+            if (current.has(dayKey)) {
+                current.delete(dayKey);
+            } else {
+                current.add(dayKey);
+            }
+
+            return {
+                ...prev,
+                runningDays: WEEK_DAYS
+                    .map((day) => day.key)
+                    .filter((key) => current.has(key))
+            };
+        });
     };
 
     const handleSaveTrain = async () => {
@@ -522,7 +814,12 @@ export default function Trains() {
             destinationStationId: Number(formData.destinationStationId),
             totalSeats: Number(formData.totalSeats),
             startTime: toApiTime(formData.startTime),
-            endTime: toApiTime(formData.endTime),
+            endTime: toApiTime(formData.endTime || deriveEndTimeFromDuration(
+                formData.startTime,
+                effectiveJourneyDurationMinutes
+            )),
+            journeyDurationMinutes: !editingTrainId ? effectiveJourneyDurationMinutes : null,
+            runningDays: formData.runningDays,
             status: formData.status || 'ACTIVE'
         };
 
@@ -547,34 +844,6 @@ export default function Trains() {
             setFormError(extractErrorMessage(error, 'Failed to save train'));
         } finally {
             setSubmitting(false);
-        }
-    };
-
-    const openDeleteModal = (event, train) => {
-        event.stopPropagation();
-        setDeleteTrain(train);
-        setDeleteModal(true);
-    };
-
-    const confirmDelete = async () => {
-        if (!deleteTrain) return;
-
-        setDeleting(true);
-        try {
-            await api.delete(`/admin/trains/${deleteTrain.id}`, {
-                headers: adminHeaders
-            });
-            setFlash({ type: 'success', message: 'Train marked as inactive' });
-            setDeleteModal(false);
-            setDeleteTrain(null);
-            await fetchTrains();
-        } catch (error) {
-            setFlash({
-                type: 'danger',
-                message: extractErrorMessage(error, 'Failed to delete train')
-            });
-        } finally {
-            setDeleting(false);
         }
     };
 
@@ -621,6 +890,8 @@ export default function Trains() {
         setPage(0);
         setShowFilterSourceSuggestions(false);
         setShowFilterDestinationSuggestions(false);
+        setFilterSourceHighlightedIndex(-1);
+        setFilterDestinationHighlightedIndex(-1);
         setAppliedFilters({
             trainNumber: filters.trainNumber,
             trainName: filters.trainName,
@@ -639,6 +910,8 @@ export default function Trains() {
         setFilterDestinationSuggestions([]);
         setShowFilterSourceSuggestions(false);
         setShowFilterDestinationSuggestions(false);
+        setFilterSourceHighlightedIndex(-1);
+        setFilterDestinationHighlightedIndex(-1);
         setPage(0);
     };
 
@@ -799,6 +1072,7 @@ export default function Trains() {
                                 value={filters.sourceStation}
                                 onFocus={() => {
                                     setShowFilterSourceSuggestions(true);
+                                    setFilterSourceHighlightedIndex(-1);
                                     searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
                                 }}
                                 onChange={(event) => {
@@ -808,8 +1082,10 @@ export default function Trains() {
                                         sourceStation: value
                                     }));
                                     setShowFilterSourceSuggestions(true);
+                                    setFilterSourceHighlightedIndex(-1);
                                     searchStations(value, null, setFilterSourceSuggestions);
                                 }}
+                                onKeyDown={handleFilterSourceKeyDown}
                                 placeholder="Type Source Station..."
                             />
 
@@ -823,22 +1099,24 @@ export default function Trains() {
                                         zIndex: 1100
                                     }}
                                 >
-                                    {filterSourceSuggestions.map((station) => {
-                                        const isDisabled = isSameStationName(
-                                            station.name,
-                                            filters.destinationStation
-                                        );
+                                    {filterSourceSuggestions.map((station, index) => {
+                                        const isDisabled = isFilterSourceSuggestionDisabled(station);
 
                                         return (
                                             <li key={station.id}>
                                                 <button
                                                     type="button"
-                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === filterSourceHighlightedIndex ? ' active' : ''}`}
                                                     disabled={isDisabled}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setFilterSourceHighlightedIndex(index);
+                                                        }
                                                     }}
                                                     onClick={() => {
                                                         if (isDisabled) return;
@@ -847,6 +1125,7 @@ export default function Trains() {
                                                             sourceStation: station.name
                                                         }));
                                                         setShowFilterSourceSuggestions(false);
+                                                        setFilterSourceHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {station.name} ({station.code})
@@ -865,6 +1144,7 @@ export default function Trains() {
                                 value={filters.destinationStation}
                                 onFocus={() => {
                                     setShowFilterDestinationSuggestions(true);
+                                    setFilterDestinationHighlightedIndex(-1);
                                     searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
                                 }}
                                 onChange={(event) => {
@@ -874,8 +1154,10 @@ export default function Trains() {
                                         destinationStation: value
                                     }));
                                     setShowFilterDestinationSuggestions(true);
+                                    setFilterDestinationHighlightedIndex(-1);
                                     searchStations(value, null, setFilterDestinationSuggestions);
                                 }}
+                                onKeyDown={handleFilterDestinationKeyDown}
                                 placeholder="Type Destination Station..."
                             />
 
@@ -889,22 +1171,24 @@ export default function Trains() {
                                         zIndex: 1100
                                     }}
                                 >
-                                    {filterDestinationSuggestions.map((station) => {
-                                        const isDisabled = isSameStationName(
-                                            station.name,
-                                            filters.sourceStation
-                                        );
+                                    {filterDestinationSuggestions.map((station, index) => {
+                                        const isDisabled = isFilterDestinationSuggestionDisabled(station);
 
                                         return (
                                             <li key={station.id}>
                                                 <button
                                                     type="button"
-                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === filterDestinationHighlightedIndex ? ' active' : ''}`}
                                                     disabled={isDisabled}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setFilterDestinationHighlightedIndex(index);
+                                                        }
                                                     }}
                                                     onClick={() => {
                                                         if (isDisabled) return;
@@ -913,6 +1197,7 @@ export default function Trains() {
                                                             destinationStation: station.name
                                                         }));
                                                         setShowFilterDestinationSuggestions(false);
+                                                        setFilterDestinationHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {station.name} ({station.code})
@@ -1036,7 +1321,7 @@ export default function Trains() {
                                         Created At {sortLabel('createdAt')}
                                     </th>
                                     <th>Modified At</th>
-                                    <th style={{ width: 130, minWidth: 130 }}>Actions</th>
+                                    <th style={{ width: 82, minWidth: 82 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1070,23 +1355,16 @@ export default function Trains() {
                                             <td>{renderEndTimeWithOffset(train.endTime, train.arrivalDayOffset)}</td>
                                             <td>{formatDateTime(train.createdAt)}</td>
                                             <td>{formatDateTime(train.modifiedAt)}</td>
-                                            <td>
-                                                <div className="d-flex gap-1">
-                                                    <button
-                                                        className="btn btn-sm btn-outline-primary"
-                                                        onClick={(event) => openEditModal(event, train.id)}
-                                                        disabled={submitting}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-outline-danger"
-                                                        onClick={(event) => openDeleteModal(event, train)}
-                                                        disabled={deleting}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
+                                            <td className="text-center">
+                                                <button
+                                                    className="btn btn-sm btn-outline-secondary"
+                                                    onClick={(event) => openEditModal(event, train.id)}
+                                                    disabled={submitting}
+                                                    title="Edit train"
+                                                    aria-label="Edit train"
+                                                >
+                                                    ✏️
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -1171,6 +1449,7 @@ export default function Trains() {
                                             placeholder="Type source station"
                                             onFocus={() => {
                                                 setShowSourceSuggestions(true);
+                                                setSourceSuggestionHighlightedIndex(-1);
                                                 searchStations(
                                                     sourceStationInput,
                                                     formData.destinationStationId,
@@ -1181,6 +1460,7 @@ export default function Trains() {
                                                 const value = event.target.value;
                                                 setSourceStationInput(value);
                                                 setShowSourceSuggestions(true);
+                                                setSourceSuggestionHighlightedIndex(-1);
                                                 setFormData((prev) => ({
                                                     ...prev,
                                                     sourceStationId: ''
@@ -1191,6 +1471,7 @@ export default function Trains() {
                                                     setSourceStationSuggestions
                                                 );
                                             }}
+                                            onKeyDown={handleSourceKeyDown}
                                         />
 
                                         {showSourceSuggestions && sourceStationSuggestions.length > 0 && (
@@ -1203,18 +1484,23 @@ export default function Trains() {
                                                     zIndex: 1100
                                                 }}
                                             >
-                                                {sourceStationSuggestions.map((station) => {
-                                                    const isDisabled = String(station.id) === formData.destinationStationId;
+                                                {sourceStationSuggestions.map((station, index) => {
+                                                    const isDisabled = isSourceSuggestionDisabled(station);
                                                     return (
                                                         <li key={station.id}>
                                                             <button
                                                                 type="button"
-                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === sourceSuggestionHighlightedIndex ? ' active' : ''}`}
                                                                 disabled={isDisabled}
                                                                 style={{
                                                                     whiteSpace: 'nowrap',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis'
+                                                                }}
+                                                                onMouseEnter={() => {
+                                                                    if (!isDisabled) {
+                                                                        setSourceSuggestionHighlightedIndex(index);
+                                                                    }
                                                                 }}
                                                                 onClick={() => {
                                                                     if (isDisabled) return;
@@ -1224,6 +1510,7 @@ export default function Trains() {
                                                                         sourceStationId: String(station.id)
                                                                     }));
                                                                     setShowSourceSuggestions(false);
+                                                                    setSourceSuggestionHighlightedIndex(-1);
                                                                 }}
                                                             >
                                                                 {station.name} ({station.code})
@@ -1243,6 +1530,7 @@ export default function Trains() {
                                             placeholder="Type destination station"
                                             onFocus={() => {
                                                 setShowDestinationSuggestions(true);
+                                                setDestinationSuggestionHighlightedIndex(-1);
                                                 searchStations(
                                                     destinationStationInput,
                                                     formData.sourceStationId,
@@ -1253,6 +1541,7 @@ export default function Trains() {
                                                 const value = event.target.value;
                                                 setDestinationStationInput(value);
                                                 setShowDestinationSuggestions(true);
+                                                setDestinationSuggestionHighlightedIndex(-1);
                                                 setFormData((prev) => ({
                                                     ...prev,
                                                     destinationStationId: ''
@@ -1263,6 +1552,7 @@ export default function Trains() {
                                                     setDestinationStationSuggestions
                                                 );
                                             }}
+                                            onKeyDown={handleDestinationKeyDown}
                                         />
 
                                         {showDestinationSuggestions && destinationStationSuggestions.length > 0 && (
@@ -1275,18 +1565,23 @@ export default function Trains() {
                                                     zIndex: 1100
                                                 }}
                                             >
-                                                {destinationStationSuggestions.map((station) => {
-                                                    const isDisabled = String(station.id) === formData.sourceStationId;
+                                                {destinationStationSuggestions.map((station, index) => {
+                                                    const isDisabled = isDestinationSuggestionDisabled(station);
                                                     return (
                                                         <li key={station.id}>
                                                             <button
                                                                 type="button"
-                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === destinationSuggestionHighlightedIndex ? ' active' : ''}`}
                                                                 disabled={isDisabled}
                                                                 style={{
                                                                     whiteSpace: 'nowrap',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis'
+                                                                }}
+                                                                onMouseEnter={() => {
+                                                                    if (!isDisabled) {
+                                                                        setDestinationSuggestionHighlightedIndex(index);
+                                                                    }
                                                                 }}
                                                                 onClick={() => {
                                                                     if (isDisabled) return;
@@ -1296,6 +1591,7 @@ export default function Trains() {
                                                                         destinationStationId: String(station.id)
                                                                     }));
                                                                     setShowDestinationSuggestions(false);
+                                                                    setDestinationSuggestionHighlightedIndex(-1);
                                                                 }}
                                                             >
                                                                 {station.name} ({station.code})
@@ -1333,14 +1629,14 @@ export default function Trains() {
                                                         startTime: nextStartTime
                                                     };
 
-                                                    if (
-                                                        editingTrainId &&
-                                                        Number.isInteger(lockedJourneyDurationMinutes) &&
-                                                        lockedJourneyDurationMinutes > 0
-                                                    ) {
+                                                    const durationForAuto = editingTrainId
+                                                        ? lockedJourneyDurationMinutes
+                                                        : Number(prev.journeyDurationMinutes);
+
+                                                    if (Number.isInteger(durationForAuto) && durationForAuto > 0) {
                                                         nextData.endTime = deriveEndTimeFromDuration(
                                                             nextStartTime,
-                                                            lockedJourneyDurationMinutes
+                                                            durationForAuto
                                                         );
                                                     }
 
@@ -1349,30 +1645,63 @@ export default function Trains() {
                                             }}
                                         />
                                     </div>
+                                    {!editingTrainId && (
+                                        <div className="col-md-4">
+                                            <label className="form-label">Total Duration (Minutes)</label>
+                                            <input
+                                                type="number"
+                                                className="form-control"
+                                                min="1"
+                                                value={formData.journeyDurationMinutes}
+                                                onChange={(event) => {
+                                                    const raw = event.target.value;
+                                                    const sanitized = raw.replace(/[^0-9]/g, '');
+                                                    setFormData((prev) => {
+                                                        const nextData = {
+                                                            ...prev,
+                                                            journeyDurationMinutes: sanitized
+                                                        };
+
+                                                        const durationMinutes = Number(sanitized);
+                                                        if (
+                                                            Number.isInteger(durationMinutes) &&
+                                                            durationMinutes > 0 &&
+                                                            prev.startTime
+                                                        ) {
+                                                            nextData.endTime = deriveEndTimeFromDuration(
+                                                                prev.startTime,
+                                                                durationMinutes
+                                                            );
+                                                        } else if (!sanitized) {
+                                                            nextData.endTime = '';
+                                                        }
+
+                                                        return nextData;
+                                                    });
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="col-md-4">
                                         <label className="form-label">End Time</label>
                                         <input
                                             type="time"
                                             className="form-control"
                                             value={formData.endTime}
-                                            disabled={Boolean(editingTrainId)}
-                                            readOnly={Boolean(editingTrainId)}
-                                            onChange={(event) => {
-                                                if (editingTrainId) return;
-                                                setFormData((prev) => ({
-                                                    ...prev,
-                                                    endTime: event.target.value
-                                                }));
-                                            }}
+                                            disabled
+                                            readOnly
                                         />
                                         {formArrivalDayOffset > 0 && (
                                             <div className="form-text text-success fw-semibold">
                                                 +{formArrivalDayOffset} day{formArrivalDayOffset === 1 ? '' : 's'}
                                             </div>
                                         )}
+                                        <div className="form-text text-muted">
+                                            Auto-calculated from {editingTrainId ? 'existing' : 'provided'} journey duration.
+                                        </div>
                                         {editingTrainId && (
                                             <div className="form-text text-muted">
-                                                Auto-calculated from total journey duration.
+                                                To change duration, create a new route timing.
                                             </div>
                                         )}
                                     </div>
@@ -1389,6 +1718,33 @@ export default function Trains() {
                                             <option value="ACTIVE">ACTIVE</option>
                                             <option value="INACTIVE">INACTIVE</option>
                                         </select>
+                                    </div>
+                                    <div className="col-12">
+                                        <label className="form-label">Running Days</label>
+                                        <div className="d-flex flex-wrap gap-2">
+                                            {WEEK_DAYS.map((day, index) => {
+                                                const selected = (formData.runningDays || []).includes(day.key);
+                                                return (
+                                                    <button
+                                                        key={`${day.key}-${index}`}
+                                                        type="button"
+                                                        className={`badge rounded-pill border-0 ${selected ? 'bg-success' : 'bg-light text-secondary border'}`}
+                                                        style={{
+                                                            minWidth: 34,
+                                                            height: 30,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        title={day.key}
+                                                        onClick={() => toggleRunningDay(day.key)}
+                                                    >
+                                                        {day.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="form-text">
+                                            Click to add/remove train running days.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1408,51 +1764,6 @@ export default function Trains() {
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Saving...' : 'Save'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {deleteModal && (
-                <div className="modal fade show d-block" style={{ background: 'rgba(0,0,0,0.45)' }}>
-                    <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content">
-                            <div className="modal-header">
-                                <h5 className="modal-title">Confirm Delete</h5>
-                                <button
-                                    className="btn-close"
-                                    type="button"
-                                    onClick={() => {
-                                        setDeleteModal(false);
-                                        setDeleteTrain(null);
-                                    }}
-                                />
-                            </div>
-                            <div className="modal-body">
-                                Are you sure you want to delete train{' '}
-                                <strong>{deleteTrain?.trainNumber}</strong>?
-                                <div className="small text-muted mt-2">
-                                    Soft delete will set train status to INACTIVE.
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setDeleteModal(false);
-                                        setDeleteTrain(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={confirmDelete}
-                                    disabled={deleting}
-                                >
-                                    {deleting ? 'Deleting...' : 'Delete'}
                                 </button>
                             </div>
                         </div>
