@@ -68,6 +68,7 @@ export default function Trains() {
     const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [lockedJourneyDurationMinutes, setLockedJourneyDurationMinutes] = useState(null);
 
     const [detailsModal, setDetailsModal] = useState(false);
     const [detailsLoading, setDetailsLoading] = useState(false);
@@ -145,6 +146,63 @@ export default function Trains() {
     const toInputTime = (value) => {
         if (!value) return '';
         return String(value).slice(0, 5);
+    };
+
+    const parseTimeToMinutes = (value) => {
+        if (!value) return null;
+
+        const parts = String(value).split(':');
+        if (parts.length < 2) return null;
+
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1]);
+
+        if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+        if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+        return hours * 60 + minutes;
+    };
+
+    const formatMinutesToInputTime = (totalMinutes) => {
+        if (!Number.isInteger(totalMinutes)) return '';
+
+        const minutesInDay = 24 * 60;
+        const normalizedMinutes = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+        const hours = String(Math.floor(normalizedMinutes / 60)).padStart(2, '0');
+        const minutes = String(normalizedMinutes % 60).padStart(2, '0');
+
+        return `${hours}:${minutes}`;
+    };
+
+    const calculateDurationFromTimes = (startTime, endTime) => {
+        const startMinutes = parseTimeToMinutes(startTime);
+        const endMinutes = parseTimeToMinutes(endTime);
+
+        if (startMinutes === null || endMinutes === null) return null;
+
+        let diff = endMinutes - startMinutes;
+        if (diff < 0) {
+            diff += 24 * 60;
+        }
+
+        if (diff <= 0) return null;
+        return diff;
+    };
+
+    const deriveEndTimeFromDuration = (startTime, durationMinutes) => {
+        const startMinutes = parseTimeToMinutes(startTime);
+        if (startMinutes === null || !Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+            return '';
+        }
+        return formatMinutesToInputTime(startMinutes + durationMinutes);
+    };
+
+    const calculateArrivalDayOffset = (startTime, durationMinutes) => {
+        const startMinutes = parseTimeToMinutes(startTime);
+        if (startMinutes === null || !Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+            return 0;
+        }
+        return Math.floor((startMinutes + durationMinutes) / (24 * 60));
     };
 
     const normalizeStationName = (value) => (value || '').trim().toLowerCase();
@@ -320,6 +378,7 @@ export default function Trains() {
 
     const resetForm = () => {
         setFormData(EMPTY_FORM);
+        setLockedJourneyDurationMinutes(null);
         setSourceStationInput('');
         setDestinationStationInput('');
         setSourceStationSuggestions([]);
@@ -351,6 +410,17 @@ export default function Trains() {
             const routeStops = Array.isArray(details.routeStops) ? details.routeStops : [];
             const sourceStop = routeStops[0];
             const destinationStop = routeStops[routeStops.length - 1];
+            const startTimeInput = toInputTime(details.startTime);
+            const durationFromRoute = Number.isInteger(destinationStop?.minutesFromSource)
+                ? destinationStop.minutesFromSource
+                : null;
+            const durationFromTimes = calculateDurationFromTimes(details.startTime, details.endTime);
+            const resolvedDuration = durationFromRoute && durationFromRoute > 0
+                ? durationFromRoute
+                : durationFromTimes;
+            const derivedEndTime = resolvedDuration
+                ? deriveEndTimeFromDuration(startTimeInput, resolvedDuration)
+                : toInputTime(details.endTime);
 
             const sourceStationId = sourceStop?.stationId ||
                 stations.find((station) => station.name === details.sourceStation)?.id || '';
@@ -363,10 +433,13 @@ export default function Trains() {
                 sourceStationId: sourceStationId ? String(sourceStationId) : '',
                 destinationStationId: destinationStationId ? String(destinationStationId) : '',
                 totalSeats: details.totalSeats ?? '',
-                startTime: toInputTime(details.startTime),
-                endTime: toInputTime(details.endTime),
+                startTime: startTimeInput,
+                endTime: derivedEndTime,
                 status: details.status || 'ACTIVE'
             });
+            setLockedJourneyDurationMinutes(
+                Number.isInteger(resolvedDuration) && resolvedDuration > 0 ? resolvedDuration : null
+            );
             setSourceStationInput(sourceStop?.stationName || details.sourceStation || '');
             setDestinationStationInput(destinationStop?.stationName || details.destinationStation || '');
             setSourceStationSuggestions([]);
@@ -385,6 +458,18 @@ export default function Trains() {
         }
     };
 
+    const effectiveJourneyDurationMinutes = useMemo(() => {
+        if (editingTrainId && Number.isInteger(lockedJourneyDurationMinutes) && lockedJourneyDurationMinutes > 0) {
+            return lockedJourneyDurationMinutes;
+        }
+        return calculateDurationFromTimes(formData.startTime, formData.endTime);
+    }, [editingTrainId, lockedJourneyDurationMinutes, formData.startTime, formData.endTime]);
+
+    const formArrivalDayOffset = useMemo(
+        () => calculateArrivalDayOffset(formData.startTime, effectiveJourneyDurationMinutes),
+        [formData.startTime, effectiveJourneyDurationMinutes]
+    );
+
     const validateForm = () => {
         if (!formData.trainNumber.trim()) return 'Train number is required';
         if (!formData.trainName.trim()) return 'Train name is required';
@@ -399,12 +484,22 @@ export default function Trains() {
             return 'Total seats must be a positive number';
         }
 
-        if (!formData.startTime || !formData.endTime) {
-            return 'Start time and end time are required';
+        if (!formData.startTime) {
+            return 'Start time is required';
         }
 
-        if (formData.startTime === formData.endTime) {
-            return 'Start and end time cannot be same';
+        if (editingTrainId) {
+            if (!Number.isInteger(effectiveJourneyDurationMinutes) || effectiveJourneyDurationMinutes <= 0) {
+                return 'Unable to resolve journey duration for this train';
+            }
+        } else {
+            if (!formData.endTime) {
+                return 'End time is required';
+            }
+
+            if (formData.startTime === formData.endTime) {
+                return 'Start and end time cannot be same';
+            }
         }
 
         return null;
@@ -560,7 +655,6 @@ export default function Trains() {
             'Source Station',
             'Destination Station',
             'Total Seats',
-            'Available Seats',
             'Status',
             'Start Time',
             'End Time',
@@ -576,7 +670,6 @@ export default function Trains() {
             row.sourceStation,
             row.destinationStation,
             row.totalSeats,
-            row.availableSeats,
             row.status,
             row.startTime,
             row.endTime,
@@ -933,7 +1026,6 @@ export default function Trains() {
                                     <th>Destination Station</th>
                                     <th>Running Days</th>
                                     <th>Total Seats</th>
-                                    <th>Available Seats</th>
                                     <th>Status</th>
                                     <th>Start Time</th>
                                     <th>End Time</th>
@@ -950,11 +1042,11 @@ export default function Trains() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="13" className="text-center">Loading...</td>
+                                        <td colSpan="12" className="text-center">Loading...</td>
                                     </tr>
                                 ) : trainsPage.content.length === 0 ? (
                                     <tr>
-                                        <td colSpan="13" className="text-center">No trains found</td>
+                                        <td colSpan="12" className="text-center">No trains found</td>
                                     </tr>
                                 ) : (
                                     trainsPage.content.map((train) => (
@@ -969,7 +1061,6 @@ export default function Trains() {
                                             <td>{train.destinationStation}</td>
                                             <td>{renderRunningDays(train.runningDays)}</td>
                                             <td>{train.totalSeats}</td>
-                                            <td>{train.availableSeats}</td>
                                             <td>
                                                 <span className={`badge ${train.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'}`}>
                                                     {train.status}
@@ -1234,10 +1325,28 @@ export default function Trains() {
                                             type="time"
                                             className="form-control"
                                             value={formData.startTime}
-                                            onChange={(event) => setFormData((prev) => ({
-                                                ...prev,
-                                                startTime: event.target.value
-                                            }))}
+                                            onChange={(event) => {
+                                                const nextStartTime = event.target.value;
+                                                setFormData((prev) => {
+                                                    const nextData = {
+                                                        ...prev,
+                                                        startTime: nextStartTime
+                                                    };
+
+                                                    if (
+                                                        editingTrainId &&
+                                                        Number.isInteger(lockedJourneyDurationMinutes) &&
+                                                        lockedJourneyDurationMinutes > 0
+                                                    ) {
+                                                        nextData.endTime = deriveEndTimeFromDuration(
+                                                            nextStartTime,
+                                                            lockedJourneyDurationMinutes
+                                                        );
+                                                    }
+
+                                                    return nextData;
+                                                });
+                                            }}
                                         />
                                     </div>
                                     <div className="col-md-4">
@@ -1246,11 +1355,26 @@ export default function Trains() {
                                             type="time"
                                             className="form-control"
                                             value={formData.endTime}
-                                            onChange={(event) => setFormData((prev) => ({
-                                                ...prev,
-                                                endTime: event.target.value
-                                            }))}
+                                            disabled={Boolean(editingTrainId)}
+                                            readOnly={Boolean(editingTrainId)}
+                                            onChange={(event) => {
+                                                if (editingTrainId) return;
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    endTime: event.target.value
+                                                }));
+                                            }}
                                         />
+                                        {formArrivalDayOffset > 0 && (
+                                            <div className="form-text text-success fw-semibold">
+                                                +{formArrivalDayOffset} day{formArrivalDayOffset === 1 ? '' : 's'}
+                                            </div>
+                                        )}
+                                        {editingTrainId && (
+                                            <div className="form-text text-muted">
+                                                Auto-calculated from total journey duration.
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="col-md-4">
                                         <label className="form-label">Status</label>
@@ -1386,9 +1510,6 @@ export default function Trains() {
                                             </div>
                                             <div className="col-md-6">
                                                 <strong>Total Seats:</strong> {selectedTrainDetails.totalSeats}
-                                            </div>
-                                            <div className="col-md-6">
-                                                <strong>Available Seats:</strong> {selectedTrainDetails.availableSeats}
                                             </div>
                                         </div>
 

@@ -200,7 +200,7 @@ public class TrainServiceImpl implements TrainService {
         }
 
         Train train = new Train();
-        applyAdminRequestToTrain(train, request);
+        applyAdminRequestToTrain(train, request, null);
         train.setTrainNumber(trainNumber);
 
         Train saved = trainRepository.save(train);
@@ -218,7 +218,8 @@ public class TrainServiceImpl implements TrainService {
         }
 
         train.setTrainNumber(trainNumber);
-        applyAdminRequestToTrain(train, request);
+        int existingJourneyDurationMinutes = resolveJourneyDurationMinutes(train);
+        applyAdminRequestToTrain(train, request, existingJourneyDurationMinutes);
 
         Train saved = trainRepository.save(train);
         return mapToAdminResponse(saved);
@@ -356,7 +357,7 @@ public class TrainServiceImpl implements TrainService {
         return new JourneySchedule(arrivalTime, dayOffset);
     }
 
-    private void applyAdminRequestToTrain(Train train, TrainAdminRequest request) {
+    private void applyAdminRequestToTrain(Train train, TrainAdminRequest request, Integer fixedDurationMinutes) {
         Station sourceStation = getStationById(request.getSourceStationId(), "Source station not found");
         Station destinationStation = getStationById(request.getDestinationStationId(), "Destination station not found");
 
@@ -366,11 +367,22 @@ public class TrainServiceImpl implements TrainService {
         if (request.getTotalSeats() == null || request.getTotalSeats() <= 0) {
             throw new RuntimeException("Total seats must be greater than zero");
         }
-        if (request.getStartTime() == null || request.getEndTime() == null) {
-            throw new RuntimeException("Start and end time are required");
+        if (request.getStartTime() == null) {
+            throw new RuntimeException("Start time is required");
         }
 
-        int minutesFromSource = calculateDurationMinutes(request.getStartTime(), request.getEndTime());
+        int minutesFromSource;
+        if (fixedDurationMinutes != null) {
+            if (fixedDurationMinutes <= 0) {
+                throw new RuntimeException("Invalid train journey duration");
+            }
+            minutesFromSource = fixedDurationMinutes;
+        } else {
+            if (request.getEndTime() == null) {
+                throw new RuntimeException("End time is required");
+            }
+            minutesFromSource = calculateDurationMinutes(request.getStartTime(), request.getEndTime());
+        }
 
         train.setTrainName(normalizeRequired(request.getTrainName(), "Train name is required"));
         train.setSourceStation(sourceStation);
@@ -383,6 +395,13 @@ public class TrainServiceImpl implements TrainService {
         }
 
         replaceRouteStations(train, sourceStation, destinationStation, minutesFromSource);
+    }
+
+    private int resolveJourneyDurationMinutes(Train train) {
+        return getEffectiveRouteStops(train).stream()
+                .map(RouteStopInfo::minutesFromSource)
+                .max(Integer::compareTo)
+                .orElseThrow(() -> new RuntimeException("Train route must contain destination stop"));
     }
 
     private void replaceRouteStations(
