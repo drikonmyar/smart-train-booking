@@ -1,6 +1,6 @@
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Helper to generate a random avatar URL (using DiceBear Avatars)
 function getAvatarUrl(username) {
@@ -11,8 +11,32 @@ export default function UserMenu() {
     const { user, setUser } = useUser();
     const [open, setOpen] = useState(false);
     const navigate = useNavigate();
+    const menuRef = useRef(null);
 
     if (!user) return null;
+
+    useEffect(() => {
+        if (!open) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+
+        const handleEsc = (event) => {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEsc);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEsc);
+        };
+    }, [open]);
 
     const handleLogout = () => {
         setUser(null);
@@ -21,7 +45,7 @@ export default function UserMenu() {
     };
 
     return (
-        <div className="dropdown" style={{ position: 'relative' }}>
+        <div className="dropdown" style={{ position: 'relative' }} ref={menuRef}>
             <img
                 src={getAvatarUrl(user.username)}
                 alt="avatar"
