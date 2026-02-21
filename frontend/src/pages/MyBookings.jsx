@@ -115,6 +115,25 @@ export default function MyBookings() {
         return `${yyyy}-${mm}-${dd} ${time}`;
     };
 
+    const formatTravelDate = (travelDateTime, travelDate) => {
+        const withTime = toDateTime(travelDateTime);
+        if (withTime) {
+            return formatBookingDate(withTime);
+        }
+        return toDateOnly(travelDate) || '-';
+    };
+
+    const isCancellationLocked = (booking) => {
+        const travelDateTime = toDateTime(booking?.travelDateTime);
+        if (!travelDateTime) {
+            return false;
+        }
+
+        const now = Date.now();
+        const lockThreshold = now + (24 * 60 * 60 * 1000);
+        return travelDateTime.getTime() <= lockThreshold;
+    };
+
     const cancelBooking = async (bookingId) => {
         const confirmCancel = window.confirm('Are you sure you want to cancel this booking?');
         if (!confirmCancel) return;
@@ -468,14 +487,26 @@ export default function MyBookings() {
                                         <td colSpan="7" className="text-center">No bookings found</td>
                                     </tr>
                                 ) : (
-                                    pagedBookings.map((booking) => (
-                                        <tr key={booking.bookingId}>
+                                    pagedBookings.map((booking) => {
+                                        const cancellationLocked = isCancellationLocked(booking);
+                                        const lockRow = cancellationLocked;
+                                        const cancelDisabled =
+                                            booking.status !== 'BOOKED' ||
+                                            cancellationLocked ||
+                                            cancellingBookingId === booking.bookingId;
+
+                                        return (
+                                        <tr
+                                            key={booking.bookingId}
+                                            className={lockRow ? 'table-secondary' : undefined}
+                                            style={lockRow ? { backgroundColor: '#e9ecef' } : undefined}
+                                        >
                                             <td>
                                                 <strong>{booking.trainNumber}</strong><br />
                                                 <small className="text-muted">{booking.trainName}</small>
                                             </td>
                                             <td>{booking.sourceStation} → {booking.destinationStation}</td>
-                                            <td>{toDateOnly(booking.travelDate) || '-'}</td>
+                                            <td>{formatTravelDate(booking.travelDateTime, booking.travelDate)}</td>
                                             <td>{booking.seatsBooked}</td>
                                             <td>
                                                 <span className={`badge ${
@@ -492,17 +523,16 @@ export default function MyBookings() {
                                             <td>
                                                 <button
                                                     className="btn btn-sm btn-danger"
-                                                    disabled={
-                                                        booking.status !== 'BOOKED' ||
-                                                        cancellingBookingId === booking.bookingId
-                                                    }
+                                                    title={cancellationLocked ? 'Cancellation locked within 24 hours of departure' : ''}
+                                                    disabled={cancelDisabled}
                                                     onClick={() => cancelBooking(booking.bookingId)}
                                                 >
                                                     {cancellingBookingId === booking.bookingId ? 'Cancelling...' : 'Cancel'}
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

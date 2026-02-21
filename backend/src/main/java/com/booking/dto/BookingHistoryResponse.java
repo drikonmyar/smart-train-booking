@@ -17,6 +17,7 @@ public class BookingHistoryResponse {
     private String destinationStation;
 
     private LocalDate travelDate;
+    private LocalDateTime travelDateTime;
     private Integer seatsBooked;
     private String status;
 
