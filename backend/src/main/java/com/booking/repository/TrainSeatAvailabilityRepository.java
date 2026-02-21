@@ -5,6 +5,7 @@ import com.booking.entity.TrainSeatAvailability;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface TrainSeatAvailabilityRepository
@@ -12,6 +13,8 @@ public interface TrainSeatAvailabilityRepository
 
     Optional<TrainSeatAvailability>
     findByTrainAndTravelDate(Train train, LocalDate travelDate);
+
+    List<TrainSeatAvailability> findByTrain(Train train);
 
     void deleteByTrain(Train train);
 }

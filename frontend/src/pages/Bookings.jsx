@@ -389,6 +389,7 @@ const BookingsPage = () => {
                                     <option value="">All</option>
                                     <option value="BOOKED">BOOKED</option>
                                     <option value="CANCELLED">CANCELLED</option>
+                                    <option value="TERMINATED">TERMINATED</option>
                                 </select>
                             </div>
 

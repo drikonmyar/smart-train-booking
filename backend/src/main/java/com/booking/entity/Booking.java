@@ -37,6 +37,6 @@ public class Booking extends BaseEntity {
     private Integer seatsBooked;
 
     @Column(nullable = false)
-    private String status; // BOOKED / CANCELLED
+    private String status; // BOOKED / CANCELLED / TERMINATED
 
 }

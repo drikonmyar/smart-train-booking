@@ -17,7 +17,7 @@ public class AdminBookingSearchRequest {
 
     private String username;
     private String trainNumber;
-    private String status; // BOOKED / CANCELLED
+    private String status; // BOOKED / CANCELLED / TERMINATED
 
     private String sourceStation;
     private String destinationStation;
