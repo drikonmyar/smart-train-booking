@@ -14,7 +14,7 @@ export default function SearchTrains() {
     const [error, setError] = useState('');
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [selectedTrain, setSelectedTrain] = useState(null);
-    const [seatsBooked, setSeatsBooked] = useState(1);
+    const [seatsBooked, setSeatsBooked] = useState('1');
     const [sourceSuggestions, setSourceSuggestions] = useState([]);
     const [destSuggestions, setDestSuggestions] = useState([]);
     const [showSourceDropdown, setShowSourceDropdown] = useState(false);
@@ -250,6 +250,60 @@ export default function SearchTrains() {
     const bookingLoginMessage = 'Please Login as a USER to Book Tickets';
     const maxSeatsPerBookingRequest = 9;
 
+    const getSeatUpperBound = () => {
+        const remaining = Number(selectedTrain?.seatsRemaining);
+        if (!Number.isFinite(remaining) || remaining <= 0) {
+            return maxSeatsPerBookingRequest;
+        }
+        return Math.max(1, Math.min(remaining, maxSeatsPerBookingRequest));
+    };
+
+    const parseSeatInputValue = (value) => {
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed)) {
+            return null;
+        }
+        return parsed;
+    };
+
+    const handleSeatsInputChange = (event) => {
+        const value = event.target.value;
+        if (value === '') {
+            setSeatsBooked('');
+            return;
+        }
+
+        if (!/^\d+$/.test(value)) {
+            return;
+        }
+
+        setSeatsBooked(value);
+    };
+
+    const handleSeatsInputBlur = () => {
+        const parsed = parseSeatInputValue(seatsBooked);
+        const upperBound = getSeatUpperBound();
+        if (parsed === null) {
+            setSeatsBooked('1');
+            return;
+        }
+        const clamped = Math.max(1, Math.min(parsed, upperBound));
+        setSeatsBooked(String(clamped));
+    };
+
+    const handleSeatsInputWheel = (event) => {
+        if (document.activeElement !== event.currentTarget) {
+            return;
+        }
+
+        event.preventDefault();
+        const upperBound = getSeatUpperBound();
+        const currentValue = parseSeatInputValue(seatsBooked) ?? 1;
+        const nextValue = event.deltaY < 0 ? currentValue + 1 : currentValue - 1;
+        const clamped = Math.max(1, Math.min(nextValue, upperBound));
+        setSeatsBooked(String(clamped));
+    };
+
     useEffect(() => {
         if (!isLoggedInUser || !user?.id || !form.travelDate) {
             setBookedTrainNumbersForDate([]);
@@ -301,11 +355,24 @@ export default function SearchTrains() {
             return;
         }
         setSelectedTrain(train);
-        setSeatsBooked(1);
+        setSeatsBooked('1');
         setShowBookingForm(true);
     };
 
     const confirmBooking = async () => {
+        const upperBound = getSeatUpperBound();
+        const parsedSeatsBooked = parseSeatInputValue(seatsBooked);
+
+        if (parsedSeatsBooked === null || parsedSeatsBooked < 1) {
+            alert('Please enter a valid seat count');
+            return;
+        }
+        if (parsedSeatsBooked > upperBound) {
+            setSeatsBooked(String(upperBound));
+            alert(`Maximum allowed seats here is ${upperBound}`);
+            return;
+        }
+
         try {
             const response = await fetch('/api/bookings/create', {
                 method: 'POST',
@@ -316,7 +383,7 @@ export default function SearchTrains() {
                     sourceStationName: selectedTrain.sourceStation,
                     destinationStationName: selectedTrain.destinationStation,
                     travelDate: formatDate(form.travelDate),
-                    seatsBooked: seatsBooked
+                    seatsBooked: parsedSeatsBooked
                 })
             });
 
@@ -611,25 +678,15 @@ export default function SearchTrains() {
                                                     type="number"
                                                     className="form-control"
                                                     min="1"
-                                                    max={Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)}
+                                                    max={getSeatUpperBound()}
                                                     value={seatsBooked}
-                                                    onChange={(e) => {
-                                                        const parsed = Number(e.target.value);
-                                                        if (Number.isNaN(parsed)) {
-                                                            setSeatsBooked(1);
-                                                            return;
-                                                        }
-
-                                                        const upperBound = Math.min(
-                                                            selectedTrain.seatsRemaining,
-                                                            maxSeatsPerBookingRequest
-                                                        );
-                                                        const clamped = Math.max(1, Math.min(parsed, upperBound));
-                                                        setSeatsBooked(clamped);
-                                                    }}
+                                                    onChange={handleSeatsInputChange}
+                                                    onBlur={handleSeatsInputBlur}
+                                                    onWheel={handleSeatsInputWheel}
+                                                    onFocus={(event) => event.target.select()}
                                                 />
                                                 <small className="text-muted">
-                                                    Max available now: {Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)}
+                                                    Max available now: {getSeatUpperBound()}
                                                 </small>
                                             </div>
                                         </div>
@@ -645,8 +702,9 @@ export default function SearchTrains() {
                                                 className="btn btn-success"
                                                 onClick={confirmBooking}
                                                 disabled={
-                                                    seatsBooked < 1 ||
-                                                    seatsBooked > Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)
+                                                    parseSeatInputValue(seatsBooked) === null ||
+                                                    parseSeatInputValue(seatsBooked) < 1 ||
+                                                    parseSeatInputValue(seatsBooked) > getSeatUpperBound()
                                                 }
                                             >
                                                 Confirm Booking
