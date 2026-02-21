@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -168,6 +170,7 @@ public class BookingServiceImpl implements BookingService {
 
         response.setBookingId(booking.getId());
         response.setTravelDate(booking.getTravelDate());
+        response.setTravelDateTime(resolveSourceDepartureDateTime(booking));
         response.setSeatsBooked(booking.getSeatsBooked());
         response.setStatus(booking.getStatus());
         response.setCreatedAt(booking.getCreatedAt());
@@ -190,6 +193,12 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() ->
                         new RuntimeException("Booking not found or already cancelled")
                 );
+
+        LocalDateTime sourceDepartureDateTime = resolveSourceDepartureDateTime(booking);
+        if (sourceDepartureDateTime != null
+                && !sourceDepartureDateTime.isAfter(LocalDateTime.now().plusHours(24))) {
+            throw new RuntimeException("Cancellation locked within 24 hours of departure");
+        }
 
         booking.setStatus("CANCELLED");
 
@@ -355,6 +364,36 @@ public class BookingServiceImpl implements BookingService {
         return booking.getDestinationStation() != null
                 ? booking.getDestinationStation()
                 : booking.getTrain().getDestinationStation();
+    }
+
+    private LocalDateTime resolveSourceDepartureDateTime(Booking booking) {
+        if (booking == null || booking.getTravelDate() == null || booking.getTrain() == null) {
+            return null;
+        }
+
+        Train train = booking.getTrain();
+        if (train.getDepartureTime() == null) {
+            return null;
+        }
+
+        Station sourceStation = getEffectiveSourceStation(booking);
+        int sourceMinutesFromSource = getStationMinutesFromSource(train, sourceStation);
+        if (sourceMinutesFromSource < 0) {
+            return null;
+        }
+
+        int departureMinutes = train.getDepartureTime().toSecondOfDay() / 60;
+        int sourceAbsoluteMinutes = departureMinutes + sourceMinutesFromSource;
+        int minutesInDay = 24 * 60;
+        int sourceTimeMinutes = Math.floorMod(sourceAbsoluteMinutes, minutesInDay);
+
+        LocalTime sourceTime = LocalTime.of(
+                sourceTimeMinutes / 60,
+                sourceTimeMinutes % 60
+        );
+
+        // booking.travelDate stores the boarding date for the selected source station.
+        return booking.getTravelDate().atTime(sourceTime);
     }
 
     private record RouteSelection(Station sourceStation, Station destinationStation) {

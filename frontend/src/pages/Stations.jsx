@@ -164,16 +164,33 @@ const StationsPage = () => {
         );
     }
 
+    const navbarOffset = 72;
+
     return (
         <div style={{
-            minHeight: '90vh',
-            width: '100vw',
+            position: 'fixed',
+            top: navbarOffset,
+            left: 0,
+            right: 0,
+            bottom: 0,
             display: 'flex',
             justifyContent: 'center',
             background: '#f8f9fa',
-            paddingTop: 30
+            paddingTop: 12,
+            paddingBottom: 16,
+            overflow: 'hidden'
         }}>
-            <div style={{ width: '100%', maxWidth: 1000 }}>
+            <div style={{
+                width: '100%',
+                maxWidth: 1000,
+                paddingLeft: 12,
+                paddingRight: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                minHeight: 0,
+                overflow: 'hidden'
+            }}>
 
                 <h3 className="mb-4 text-center">Station Management</h3>
 
@@ -293,8 +310,8 @@ const StationsPage = () => {
                 </div>
 
                 {/* -------- TABLE -------- */}
-                <div style={{ maxHeight: 420, overflow: 'auto' }}>
-                    <table className="table table-bordered table-striped">
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                    <table className="table table-bordered table-striped mb-0">
                         <thead className="table-dark sticky-top">
                             <tr>
                                 <th>ID</th>
