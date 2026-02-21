@@ -35,8 +35,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -220,6 +222,7 @@ public class TrainServiceImpl implements TrainService {
         if (trainRepository.existsByTrainNumberAndIdNot(trainNumber, id)) {
             throw new RuntimeException("Train number already exists");
         }
+        validateRequestedTotalSeats(train, request);
 
         train.setTrainNumber(trainNumber);
         int existingJourneyDurationMinutes = resolveJourneyDurationMinutes(train);
@@ -228,6 +231,8 @@ public class TrainServiceImpl implements TrainService {
         Train saved = trainRepository.save(train);
         if (saved.getStatus() == TrainStatus.INACTIVE) {
             terminateActiveBookingsForInactiveTrain(saved);
+        } else {
+            syncSeatAvailabilityWithUpdatedCapacity(saved);
         }
         return mapToAdminResponse(saved);
     }
@@ -435,6 +440,118 @@ public class TrainServiceImpl implements TrainService {
             availabilities.forEach(availability -> availability.setAvailableSeats(train.getTotalSeats()));
             seatAvailabilityRepository.saveAll(availabilities);
         }
+    }
+
+    private void validateRequestedTotalSeats(Train train, TrainAdminRequest request) {
+        if (request.getTotalSeats() == null) {
+            return;
+        }
+
+        TrainStatus requestedStatus = request.getStatus() == null
+                ? (train.getStatus() == null ? TrainStatus.ACTIVE : train.getStatus())
+                : request.getStatus();
+        if (requestedStatus == TrainStatus.INACTIVE) {
+            return;
+        }
+
+        int maxBookedOnAnyDate = Optional.ofNullable(
+                bookingRepository.findMaxSeatsBookedForAnyTravelDate(train.getId())
+        ).orElse(0);
+
+        if (request.getTotalSeats() < maxBookedOnAnyDate) {
+            throw new RuntimeException(
+                    "Total seats cannot be less than " + maxBookedOnAnyDate
+                            + " because that many seats are already booked on at least one travel date"
+            );
+        }
+    }
+
+    private void syncSeatAvailabilityWithUpdatedCapacity(Train train) {
+        if (train.getTotalSeats() == null) {
+            return;
+        }
+
+        List<TrainSeatAvailability> existingAvailabilities = seatAvailabilityRepository.findByTrain(train);
+        Map<LocalDate, TrainSeatAvailability> availabilityByDate = new HashMap<>();
+        existingAvailabilities.forEach(availability -> availabilityByDate.put(availability.getTravelDate(), availability));
+
+        Map<LocalDate, Integer> bookedSeatsByOriginDate = getActiveBookedSeatsByOriginDate(train);
+        List<TrainSeatAvailability> updates = new ArrayList<>();
+
+        for (Map.Entry<LocalDate, Integer> entry : bookedSeatsByOriginDate.entrySet()) {
+            LocalDate originDate = entry.getKey();
+            int bookedSeats = entry.getValue();
+
+            TrainSeatAvailability availability = availabilityByDate.remove(originDate);
+            if (availability == null) {
+                availability = new TrainSeatAvailability();
+                availability.setTrain(train);
+                availability.setTravelDate(originDate);
+            }
+
+            int recalculatedAvailableSeats = Math.max(0, train.getTotalSeats() - bookedSeats);
+            availability.setAvailableSeats(recalculatedAvailableSeats);
+            updates.add(availability);
+        }
+
+        for (TrainSeatAvailability availability : availabilityByDate.values()) {
+            availability.setAvailableSeats(train.getTotalSeats());
+            updates.add(availability);
+        }
+
+        if (!updates.isEmpty()) {
+            seatAvailabilityRepository.saveAll(updates);
+        }
+    }
+
+    private Map<LocalDate, Integer> getActiveBookedSeatsByOriginDate(Train train) {
+        List<Booking> activeBookings = bookingRepository.findByTrainIdAndStatusIgnoreCase(
+                train.getId(),
+                BOOKING_STATUS_BOOKED
+        );
+
+        Map<LocalDate, Integer> bookedByOriginDate = new HashMap<>();
+        for (Booking booking : activeBookings) {
+            int seatsBooked = booking.getSeatsBooked() == null ? 0 : booking.getSeatsBooked();
+            if (seatsBooked <= 0) {
+                continue;
+            }
+
+            LocalDate originServiceDate = resolveOriginServiceDateForBooking(train, booking);
+            bookedByOriginDate.merge(originServiceDate, seatsBooked, Integer::sum);
+        }
+
+        return bookedByOriginDate;
+    }
+
+    private LocalDate resolveOriginServiceDateForBooking(Train train, Booking booking) {
+        Station sourceStation = booking.getSourceStation() != null
+                ? booking.getSourceStation()
+                : train.getSourceStation();
+
+        int sourceMinutesFromSource = getSourceMinutesFromRoute(train, sourceStation);
+        if (sourceMinutesFromSource < 0) {
+            // Historical bookings can point to stations no longer in edited route; keep a safe fallback.
+            return booking.getTravelDate();
+        }
+
+        return resolveOriginServiceDate(
+                booking.getTravelDate(),
+                train.getDepartureTime(),
+                sourceMinutesFromSource
+        );
+    }
+
+    private int getSourceMinutesFromRoute(Train train, Station station) {
+        if (station == null || station.getId() == null) {
+            return -1;
+        }
+
+        return getEffectiveRouteStops(train).stream()
+                .filter(routeStop -> routeStop.station().getId().equals(station.getId()))
+                .map(RouteStopInfo::minutesFromSource)
+                .findFirst()
+                .orElse(-1);
     }
 
     private void replaceRouteStations(
