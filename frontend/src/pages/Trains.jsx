@@ -176,7 +176,7 @@ export default function Trains() {
         const runningDaysSet = new Set(Array.isArray(runningDays) ? runningDays : []);
 
         return (
-            <div className="d-flex flex-wrap gap-1 justify-content-center">
+            <span className="d-inline-flex flex-wrap gap-1 align-items-center">
                 {weekDays.map((day, index) => (
                     <span
                         key={`${day.key}-${index}`}
@@ -189,7 +189,7 @@ export default function Trains() {
                         {day.label}
                     </span>
                 ))}
-            </div>
+            </span>
         );
     };
 
