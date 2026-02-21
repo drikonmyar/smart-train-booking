@@ -124,10 +124,13 @@ export default function MyBookings() {
                                         <td>{b.travelDate}</td>
                                         <td>{b.seatsBooked}</td>
                                         <td>
-                                            <span className={`badge ${b.status === 'CANCELLED'
-                                                ? 'bg-danger'
-                                                : 'bg-success'
-                                                }`}>
+                                            <span className={`badge ${
+                                                b.status === 'BOOKED'
+                                                    ? 'bg-success'
+                                                    : b.status === 'TERMINATED'
+                                                        ? 'bg-dark'
+                                                        : 'bg-danger'
+                                            }`}>
                                                 {b.status}
                                             </span>
                                         </td>
@@ -135,7 +138,7 @@ export default function MyBookings() {
                                         <td>
                                             <button
                                                 className="btn btn-sm btn-danger"
-                                                disabled={b.status === 'CANCELLED'}
+                                                disabled={b.status !== 'BOOKED'}
                                                 onClick={() => cancelBooking(b.bookingId)}
                                             >
                                                 Cancel

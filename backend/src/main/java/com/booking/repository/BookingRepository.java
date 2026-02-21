@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpecificationExecutor<Booking> {
     List<Booking> findByUserId(Long userId);
     List<Booking> findByTrainId(Long trainId);
+    List<Booking> findByTrainIdAndStatusIgnoreCase(Long trainId, String status);
     List<Booking> findByUserIdOrderByCreatedAtDesc(Long userId);
     Optional<Booking> findByIdAndStatus(Long id, String status);
 }

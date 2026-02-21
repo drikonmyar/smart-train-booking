@@ -45,6 +45,10 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class TrainServiceImpl implements TrainService {
 
+    private static final String BOOKING_STATUS_BOOKED = "BOOKED";
+    private static final String BOOKING_STATUS_CANCELLED = "CANCELLED";
+    private static final String BOOKING_STATUS_TERMINATED = "TERMINATED";
+
     private final TrainRepository trainRepository;
     private final StationRepository stationRepository;
     private final TrainSeatAvailabilityRepository seatAvailabilityRepository;
@@ -222,10 +226,14 @@ public class TrainServiceImpl implements TrainService {
         applyAdminRequestToTrain(train, request, existingJourneyDurationMinutes);
 
         Train saved = trainRepository.save(train);
+        if (saved.getStatus() == TrainStatus.INACTIVE) {
+            terminateActiveBookingsForInactiveTrain(saved);
+        }
         return mapToAdminResponse(saved);
     }
 
     @Override
+    @Transactional
     public void deleteAdminTrain(Long id, boolean hardDelete) {
         Train train = getTrainById(id);
 
@@ -240,9 +248,11 @@ public class TrainServiceImpl implements TrainService {
 
         train.setStatus(TrainStatus.INACTIVE);
         trainRepository.save(train);
+        terminateActiveBookingsForInactiveTrain(train);
     }
 
     @Override
+    @Transactional
     public TrainAdminResponse toggleTrainStatus(Long id, TrainStatus status) {
         Train train = getTrainById(id);
         TrainStatus nextStatus;
@@ -256,7 +266,11 @@ public class TrainServiceImpl implements TrainService {
         }
 
         train.setStatus(nextStatus);
-        return mapToAdminResponse(trainRepository.save(train));
+        Train saved = trainRepository.save(train);
+        if (nextStatus == TrainStatus.INACTIVE) {
+            terminateActiveBookingsForInactiveTrain(saved);
+        }
+        return mapToAdminResponse(saved);
     }
 
     @Override
@@ -269,13 +283,15 @@ public class TrainServiceImpl implements TrainService {
 
         List<Booking> bookings = bookingRepository.findByTrainId(id);
         long activeBookings = bookings.stream()
-                .filter(booking -> "BOOKED".equalsIgnoreCase(booking.getStatus()))
+                .filter(booking -> BOOKING_STATUS_BOOKED.equalsIgnoreCase(booking.getStatus()))
                 .count();
         long cancelledBookings = bookings.stream()
-                .filter(booking -> "CANCELLED".equalsIgnoreCase(booking.getStatus()))
+                .filter(booking ->
+                        BOOKING_STATUS_CANCELLED.equalsIgnoreCase(booking.getStatus())
+                                || BOOKING_STATUS_TERMINATED.equalsIgnoreCase(booking.getStatus()))
                 .count();
         long seatsBooked = bookings.stream()
-                .filter(booking -> "BOOKED".equalsIgnoreCase(booking.getStatus()))
+                .filter(booking -> BOOKING_STATUS_BOOKED.equalsIgnoreCase(booking.getStatus()))
                 .mapToLong(booking -> booking.getSeatsBooked() == null ? 0 : booking.getSeatsBooked())
                 .sum();
 
@@ -402,6 +418,23 @@ public class TrainServiceImpl implements TrainService {
                 .map(RouteStopInfo::minutesFromSource)
                 .max(Integer::compareTo)
                 .orElseThrow(() -> new RuntimeException("Train route must contain destination stop"));
+    }
+
+    private void terminateActiveBookingsForInactiveTrain(Train train) {
+        List<Booking> activeBookings = bookingRepository.findByTrainIdAndStatusIgnoreCase(
+                train.getId(),
+                BOOKING_STATUS_BOOKED
+        );
+        if (!activeBookings.isEmpty()) {
+            activeBookings.forEach(booking -> booking.setStatus(BOOKING_STATUS_TERMINATED));
+            bookingRepository.saveAll(activeBookings);
+        }
+
+        List<TrainSeatAvailability> availabilities = seatAvailabilityRepository.findByTrain(train);
+        if (!availabilities.isEmpty()) {
+            availabilities.forEach(availability -> availability.setAvailableSeats(train.getTotalSeats()));
+            seatAvailabilityRepository.saveAll(availabilities);
+        }
     }
 
     private void replaceRouteStations(
