@@ -24,6 +24,7 @@ const BookingsPage = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [hasSearched, setHasSearched] = useState(false);
 
     const [sourceSuggestions, setSourceSuggestions] = useState([]);
     const [destSuggestions, setDestSuggestions] = useState([]);
@@ -148,6 +149,7 @@ const BookingsPage = () => {
 
     const fetchBookings = async () => {
         if (!isAdmin) return;
+        setHasSearched(true);
         setLoading(true);
         setError('');
         try {
@@ -243,10 +245,38 @@ const BookingsPage = () => {
         );
     }
 
+    const navbarOffset = 72;
+
     return (
-        <div className="container-fluid mt-4">
-            <div className="row justify-content-center">
-                <div className="col-12 col-xl-10">
+        <div
+            className="container-fluid"
+            style={{
+                position: 'fixed',
+                top: navbarOffset,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                paddingTop: 8,
+                paddingBottom: 16,
+                background: '#f8f9fa',
+                display: 'flex',
+                justifyContent: 'center',
+                overflow: 'hidden'
+            }}
+        >
+            <div
+                style={{
+                    width: '100%',
+                    maxWidth: 1320,
+                    paddingLeft: 12,
+                    paddingRight: 12,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    height: '100%',
+                    overflow: 'hidden'
+                }}
+            >
 
                     <h3 className="mb-3 text-center">Admin Booking Search</h3>
                     {error && (
@@ -254,7 +284,7 @@ const BookingsPage = () => {
                     )}
 
                     {/* FILTERS */}
-                    <div className="card p-3 mb-4">
+                    <div className="card p-3 mb-3">
                         <div className="row g-3">
 
                             {/* DATE FILTERS */}
@@ -520,48 +550,63 @@ const BookingsPage = () => {
                     </div>
 
                     {/* RESULTS TABLE */}
-                    <div className="card">
-                        <div style={{ maxHeight: 400, overflow: 'auto' }}>
-                            <table className="table table-bordered table-striped mb-0">
-                                <thead className="table-dark sticky-top">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>User</th>
-                                        <th>Train</th>
-                                        <th>Source</th>
-                                        <th>Destination</th>
-                                        <th>Travel Date</th>
-                                        <th>Seats</th>
-                                        <th>Status</th>
-                                        <th>Booking Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr><td colSpan="9" className="text-center">Loading...</td></tr>
-                                    ) : bookings.length === 0 ? (
-                                        <tr><td colSpan="9" className="text-center">No bookings found</td></tr>
-                                    ) : bookings.map(b => (
-                                        <tr key={b.bookingId}>
-                                            <td>{b.bookingId}</td>
-                                            <td>{b.user?.username}</td>
-                                            <td>{b.train?.trainNumber}</td>
-                                            <td>{b.sourceStation?.name}</td>
-                                            <td>{b.destinationStation?.name}</td>
-                                            <td>{b.travelDate}</td>
-                                            <td>{b.seatsBooked}</td>
-                                            <td>{b.status}</td>
-                                            <td>{formatBookingDate(b.bookingDate)}</td>
+                    {hasSearched && (
+                        <div
+                            className="card"
+                            style={{
+                                flex: bookings.length > 0 ? 1 : 'initial',
+                                minHeight: bookings.length > 0 ? 0 : 'auto',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}
+                        >
+                            <div
+                                style={{
+                                    flex: bookings.length > 0 ? 1 : 'initial',
+                                    minHeight: bookings.length > 0 ? 0 : 'auto',
+                                    overflow: bookings.length > 0 ? 'auto' : 'visible'
+                                }}
+                            >
+                                <table className="table table-bordered table-striped mb-0">
+                                    <thead className="table-dark sticky-top">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>User</th>
+                                            <th>Train</th>
+                                            <th>Source</th>
+                                            <th>Destination</th>
+                                            <th>Travel Date</th>
+                                            <th>Seats</th>
+                                            <th>Status</th>
+                                            <th>Booking Date</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {loading ? (
+                                            <tr><td colSpan="9" className="text-center">Loading...</td></tr>
+                                        ) : bookings.length === 0 ? (
+                                            <tr><td colSpan="9" className="text-center">No bookings found</td></tr>
+                                        ) : bookings.map(b => (
+                                            <tr key={b.bookingId}>
+                                                <td>{b.bookingId}</td>
+                                                <td>{b.user?.username}</td>
+                                                <td>{b.train?.trainNumber}</td>
+                                                <td>{b.sourceStation?.name}</td>
+                                                <td>{b.destinationStation?.name}</td>
+                                                <td>{b.travelDate}</td>
+                                                <td>{b.seatsBooked}</td>
+                                                <td>{b.status}</td>
+                                                <td>{formatBookingDate(b.bookingDate)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                 </div>
             </div>
-        </div>
     );
 };
 
