@@ -55,6 +55,8 @@ export default function Trains() {
     const [filterDestinationSuggestions, setFilterDestinationSuggestions] = useState([]);
     const [showFilterSourceSuggestions, setShowFilterSourceSuggestions] = useState(false);
     const [showFilterDestinationSuggestions, setShowFilterDestinationSuggestions] = useState(false);
+    const [filterSourceHighlightedIndex, setFilterSourceHighlightedIndex] = useState(-1);
+    const [filterDestinationHighlightedIndex, setFilterDestinationHighlightedIndex] = useState(-1);
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(10);
@@ -79,6 +81,8 @@ export default function Trains() {
     const [destinationStationSuggestions, setDestinationStationSuggestions] = useState([]);
     const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
     const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
+    const [sourceSuggestionHighlightedIndex, setSourceSuggestionHighlightedIndex] = useState(-1);
+    const [destinationSuggestionHighlightedIndex, setDestinationSuggestionHighlightedIndex] = useState(-1);
     const [formError, setFormError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [lockedJourneyDurationMinutes, setLockedJourneyDurationMinutes] = useState(null);
@@ -112,9 +116,11 @@ export default function Trains() {
         const handleClickOutside = (event) => {
             if (sourceStationRef.current && !sourceStationRef.current.contains(event.target)) {
                 setShowSourceSuggestions(false);
+                setSourceSuggestionHighlightedIndex(-1);
             }
             if (destinationStationRef.current && !destinationStationRef.current.contains(event.target)) {
                 setShowDestinationSuggestions(false);
+                setDestinationSuggestionHighlightedIndex(-1);
             }
         };
 
@@ -126,9 +132,11 @@ export default function Trains() {
         const handleFilterOutsideClick = (event) => {
             if (filterSourceRef.current && !filterSourceRef.current.contains(event.target)) {
                 setShowFilterSourceSuggestions(false);
+                setFilterSourceHighlightedIndex(-1);
             }
             if (filterDestinationRef.current && !filterDestinationRef.current.contains(event.target)) {
                 setShowFilterDestinationSuggestions(false);
+                setFilterDestinationHighlightedIndex(-1);
             }
         };
 
@@ -309,6 +317,246 @@ export default function Trains() {
         }
     }, []);
 
+    const isFilterSourceSuggestionDisabled = (station) =>
+        isSameStationName(station?.name, filters.destinationStation);
+
+    const isFilterDestinationSuggestionDisabled = (station) =>
+        isSameStationName(station?.name, filters.sourceStation);
+
+    const isSourceSuggestionDisabled = (station) =>
+        String(station?.id) === String(formData.destinationStationId);
+
+    const isDestinationSuggestionDisabled = (station) =>
+        String(station?.id) === String(formData.sourceStationId);
+
+    const findNextEnabledIndex = (suggestions, currentIndex, direction, isDisabledFn) => {
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            return -1;
+        }
+
+        let nextIndex = currentIndex;
+        if (nextIndex < 0) {
+            nextIndex = direction > 0 ? -1 : 0;
+        }
+        for (let i = 0; i < suggestions.length; i += 1) {
+            nextIndex = (nextIndex + direction + suggestions.length) % suggestions.length;
+            if (!isDisabledFn(suggestions[nextIndex])) {
+                return nextIndex;
+            }
+        }
+        return -1;
+    };
+
+    const handleFilterSourceKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowFilterSourceSuggestions(true);
+            if (filterSourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
+                return;
+            }
+            setFilterSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterSourceSuggestions, prev, 1, isFilterSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowFilterSourceSuggestions(true);
+            if (filterSourceSuggestions.length === 0) {
+                searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
+                return;
+            }
+            setFilterSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterSourceSuggestions, prev, -1, isFilterSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showFilterSourceSuggestions && filterSourceHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = filterSourceSuggestions[filterSourceHighlightedIndex];
+            if (!station || isFilterSourceSuggestionDisabled(station)) {
+                return;
+            }
+            setFilters((prev) => ({
+                ...prev,
+                sourceStation: station.name
+            }));
+            setShowFilterSourceSuggestions(false);
+            setFilterSourceHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowFilterSourceSuggestions(false);
+            setFilterSourceHighlightedIndex(-1);
+        }
+    };
+
+    const handleFilterDestinationKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowFilterDestinationSuggestions(true);
+            if (filterDestinationSuggestions.length === 0) {
+                searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
+                return;
+            }
+            setFilterDestinationHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterDestinationSuggestions, prev, 1, isFilterDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowFilterDestinationSuggestions(true);
+            if (filterDestinationSuggestions.length === 0) {
+                searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
+                return;
+            }
+            setFilterDestinationHighlightedIndex((prev) =>
+                findNextEnabledIndex(filterDestinationSuggestions, prev, -1, isFilterDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showFilterDestinationSuggestions && filterDestinationHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = filterDestinationSuggestions[filterDestinationHighlightedIndex];
+            if (!station || isFilterDestinationSuggestionDisabled(station)) {
+                return;
+            }
+            setFilters((prev) => ({
+                ...prev,
+                destinationStation: station.name
+            }));
+            setShowFilterDestinationSuggestions(false);
+            setFilterDestinationHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowFilterDestinationSuggestions(false);
+            setFilterDestinationHighlightedIndex(-1);
+        }
+    };
+
+    const handleSourceKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowSourceSuggestions(true);
+            if (sourceStationSuggestions.length === 0) {
+                searchStations(
+                    sourceStationInput,
+                    formData.destinationStationId,
+                    setSourceStationSuggestions
+                );
+                return;
+            }
+            setSourceSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceStationSuggestions, prev, 1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowSourceSuggestions(true);
+            if (sourceStationSuggestions.length === 0) {
+                searchStations(
+                    sourceStationInput,
+                    formData.destinationStationId,
+                    setSourceStationSuggestions
+                );
+                return;
+            }
+            setSourceSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceStationSuggestions, prev, -1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showSourceSuggestions && sourceSuggestionHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = sourceStationSuggestions[sourceSuggestionHighlightedIndex];
+            if (!station || isSourceSuggestionDisabled(station)) {
+                return;
+            }
+            setSourceStationInput(station.name);
+            setFormData((prev) => ({
+                ...prev,
+                sourceStationId: String(station.id)
+            }));
+            setShowSourceSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowSourceSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+        }
+    };
+
+    const handleDestinationKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowDestinationSuggestions(true);
+            if (destinationStationSuggestions.length === 0) {
+                searchStations(
+                    destinationStationInput,
+                    formData.sourceStationId,
+                    setDestinationStationSuggestions
+                );
+                return;
+            }
+            setDestinationSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(destinationStationSuggestions, prev, 1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowDestinationSuggestions(true);
+            if (destinationStationSuggestions.length === 0) {
+                searchStations(
+                    destinationStationInput,
+                    formData.sourceStationId,
+                    setDestinationStationSuggestions
+                );
+                return;
+            }
+            setDestinationSuggestionHighlightedIndex((prev) =>
+                findNextEnabledIndex(destinationStationSuggestions, prev, -1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showDestinationSuggestions && destinationSuggestionHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = destinationStationSuggestions[destinationSuggestionHighlightedIndex];
+            if (!station || isDestinationSuggestionDisabled(station)) {
+                return;
+            }
+            setDestinationStationInput(station.name);
+            setFormData((prev) => ({
+                ...prev,
+                destinationStationId: String(station.id)
+            }));
+            setShowDestinationSuggestions(false);
+            setDestinationSuggestionHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowDestinationSuggestions(false);
+            setDestinationSuggestionHighlightedIndex(-1);
+        }
+    };
+
     const fetchTrains = useCallback(async () => {
         setLoading(true);
         setTableError('');
@@ -387,6 +635,8 @@ export default function Trains() {
         setDestinationStationSuggestions([]);
         setShowSourceSuggestions(false);
         setShowDestinationSuggestions(false);
+        setSourceSuggestionHighlightedIndex(-1);
+        setDestinationSuggestionHighlightedIndex(-1);
         setFormError('');
         setEditingTrainId(null);
     };
@@ -454,6 +704,8 @@ export default function Trains() {
             setDestinationStationSuggestions([]);
             setShowSourceSuggestions(false);
             setShowDestinationSuggestions(false);
+            setSourceSuggestionHighlightedIndex(-1);
+            setDestinationSuggestionHighlightedIndex(-1);
             setEditingTrainId(trainId);
             setShowFormModal(true);
         } catch (error) {
@@ -638,6 +890,8 @@ export default function Trains() {
         setPage(0);
         setShowFilterSourceSuggestions(false);
         setShowFilterDestinationSuggestions(false);
+        setFilterSourceHighlightedIndex(-1);
+        setFilterDestinationHighlightedIndex(-1);
         setAppliedFilters({
             trainNumber: filters.trainNumber,
             trainName: filters.trainName,
@@ -656,6 +910,8 @@ export default function Trains() {
         setFilterDestinationSuggestions([]);
         setShowFilterSourceSuggestions(false);
         setShowFilterDestinationSuggestions(false);
+        setFilterSourceHighlightedIndex(-1);
+        setFilterDestinationHighlightedIndex(-1);
         setPage(0);
     };
 
@@ -816,6 +1072,7 @@ export default function Trains() {
                                 value={filters.sourceStation}
                                 onFocus={() => {
                                     setShowFilterSourceSuggestions(true);
+                                    setFilterSourceHighlightedIndex(-1);
                                     searchStations(filters.sourceStation, null, setFilterSourceSuggestions);
                                 }}
                                 onChange={(event) => {
@@ -825,8 +1082,10 @@ export default function Trains() {
                                         sourceStation: value
                                     }));
                                     setShowFilterSourceSuggestions(true);
+                                    setFilterSourceHighlightedIndex(-1);
                                     searchStations(value, null, setFilterSourceSuggestions);
                                 }}
+                                onKeyDown={handleFilterSourceKeyDown}
                                 placeholder="Type Source Station..."
                             />
 
@@ -840,22 +1099,24 @@ export default function Trains() {
                                         zIndex: 1100
                                     }}
                                 >
-                                    {filterSourceSuggestions.map((station) => {
-                                        const isDisabled = isSameStationName(
-                                            station.name,
-                                            filters.destinationStation
-                                        );
+                                    {filterSourceSuggestions.map((station, index) => {
+                                        const isDisabled = isFilterSourceSuggestionDisabled(station);
 
                                         return (
                                             <li key={station.id}>
                                                 <button
                                                     type="button"
-                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === filterSourceHighlightedIndex ? ' active' : ''}`}
                                                     disabled={isDisabled}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setFilterSourceHighlightedIndex(index);
+                                                        }
                                                     }}
                                                     onClick={() => {
                                                         if (isDisabled) return;
@@ -864,6 +1125,7 @@ export default function Trains() {
                                                             sourceStation: station.name
                                                         }));
                                                         setShowFilterSourceSuggestions(false);
+                                                        setFilterSourceHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {station.name} ({station.code})
@@ -882,6 +1144,7 @@ export default function Trains() {
                                 value={filters.destinationStation}
                                 onFocus={() => {
                                     setShowFilterDestinationSuggestions(true);
+                                    setFilterDestinationHighlightedIndex(-1);
                                     searchStations(filters.destinationStation, null, setFilterDestinationSuggestions);
                                 }}
                                 onChange={(event) => {
@@ -891,8 +1154,10 @@ export default function Trains() {
                                         destinationStation: value
                                     }));
                                     setShowFilterDestinationSuggestions(true);
+                                    setFilterDestinationHighlightedIndex(-1);
                                     searchStations(value, null, setFilterDestinationSuggestions);
                                 }}
+                                onKeyDown={handleFilterDestinationKeyDown}
                                 placeholder="Type Destination Station..."
                             />
 
@@ -906,22 +1171,24 @@ export default function Trains() {
                                         zIndex: 1100
                                     }}
                                 >
-                                    {filterDestinationSuggestions.map((station) => {
-                                        const isDisabled = isSameStationName(
-                                            station.name,
-                                            filters.sourceStation
-                                        );
+                                    {filterDestinationSuggestions.map((station, index) => {
+                                        const isDisabled = isFilterDestinationSuggestionDisabled(station);
 
                                         return (
                                             <li key={station.id}>
                                                 <button
                                                     type="button"
-                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === filterDestinationHighlightedIndex ? ' active' : ''}`}
                                                     disabled={isDisabled}
                                                     style={{
                                                         whiteSpace: 'nowrap',
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setFilterDestinationHighlightedIndex(index);
+                                                        }
                                                     }}
                                                     onClick={() => {
                                                         if (isDisabled) return;
@@ -930,6 +1197,7 @@ export default function Trains() {
                                                             destinationStation: station.name
                                                         }));
                                                         setShowFilterDestinationSuggestions(false);
+                                                        setFilterDestinationHighlightedIndex(-1);
                                                     }}
                                                 >
                                                     {station.name} ({station.code})
@@ -1181,6 +1449,7 @@ export default function Trains() {
                                             placeholder="Type source station"
                                             onFocus={() => {
                                                 setShowSourceSuggestions(true);
+                                                setSourceSuggestionHighlightedIndex(-1);
                                                 searchStations(
                                                     sourceStationInput,
                                                     formData.destinationStationId,
@@ -1191,6 +1460,7 @@ export default function Trains() {
                                                 const value = event.target.value;
                                                 setSourceStationInput(value);
                                                 setShowSourceSuggestions(true);
+                                                setSourceSuggestionHighlightedIndex(-1);
                                                 setFormData((prev) => ({
                                                     ...prev,
                                                     sourceStationId: ''
@@ -1201,6 +1471,7 @@ export default function Trains() {
                                                     setSourceStationSuggestions
                                                 );
                                             }}
+                                            onKeyDown={handleSourceKeyDown}
                                         />
 
                                         {showSourceSuggestions && sourceStationSuggestions.length > 0 && (
@@ -1213,18 +1484,23 @@ export default function Trains() {
                                                     zIndex: 1100
                                                 }}
                                             >
-                                                {sourceStationSuggestions.map((station) => {
-                                                    const isDisabled = String(station.id) === formData.destinationStationId;
+                                                {sourceStationSuggestions.map((station, index) => {
+                                                    const isDisabled = isSourceSuggestionDisabled(station);
                                                     return (
                                                         <li key={station.id}>
                                                             <button
                                                                 type="button"
-                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === sourceSuggestionHighlightedIndex ? ' active' : ''}`}
                                                                 disabled={isDisabled}
                                                                 style={{
                                                                     whiteSpace: 'nowrap',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis'
+                                                                }}
+                                                                onMouseEnter={() => {
+                                                                    if (!isDisabled) {
+                                                                        setSourceSuggestionHighlightedIndex(index);
+                                                                    }
                                                                 }}
                                                                 onClick={() => {
                                                                     if (isDisabled) return;
@@ -1234,6 +1510,7 @@ export default function Trains() {
                                                                         sourceStationId: String(station.id)
                                                                     }));
                                                                     setShowSourceSuggestions(false);
+                                                                    setSourceSuggestionHighlightedIndex(-1);
                                                                 }}
                                                             >
                                                                 {station.name} ({station.code})
@@ -1253,6 +1530,7 @@ export default function Trains() {
                                             placeholder="Type destination station"
                                             onFocus={() => {
                                                 setShowDestinationSuggestions(true);
+                                                setDestinationSuggestionHighlightedIndex(-1);
                                                 searchStations(
                                                     destinationStationInput,
                                                     formData.sourceStationId,
@@ -1263,6 +1541,7 @@ export default function Trains() {
                                                 const value = event.target.value;
                                                 setDestinationStationInput(value);
                                                 setShowDestinationSuggestions(true);
+                                                setDestinationSuggestionHighlightedIndex(-1);
                                                 setFormData((prev) => ({
                                                     ...prev,
                                                     destinationStationId: ''
@@ -1273,6 +1552,7 @@ export default function Trains() {
                                                     setDestinationStationSuggestions
                                                 );
                                             }}
+                                            onKeyDown={handleDestinationKeyDown}
                                         />
 
                                         {showDestinationSuggestions && destinationStationSuggestions.length > 0 && (
@@ -1285,18 +1565,23 @@ export default function Trains() {
                                                     zIndex: 1100
                                                 }}
                                             >
-                                                {destinationStationSuggestions.map((station) => {
-                                                    const isDisabled = String(station.id) === formData.sourceStationId;
+                                                {destinationStationSuggestions.map((station, index) => {
+                                                    const isDisabled = isDestinationSuggestionDisabled(station);
                                                     return (
                                                         <li key={station.id}>
                                                             <button
                                                                 type="button"
-                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                                                className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === destinationSuggestionHighlightedIndex ? ' active' : ''}`}
                                                                 disabled={isDisabled}
                                                                 style={{
                                                                     whiteSpace: 'nowrap',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis'
+                                                                }}
+                                                                onMouseEnter={() => {
+                                                                    if (!isDisabled) {
+                                                                        setDestinationSuggestionHighlightedIndex(index);
+                                                                    }
                                                                 }}
                                                                 onClick={() => {
                                                                     if (isDisabled) return;
@@ -1306,6 +1591,7 @@ export default function Trains() {
                                                                         destinationStationId: String(station.id)
                                                                     }));
                                                                     setShowDestinationSuggestions(false);
+                                                                    setDestinationSuggestionHighlightedIndex(-1);
                                                                 }}
                                                             >
                                                                 {station.name} ({station.code})

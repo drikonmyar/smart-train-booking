@@ -19,6 +19,9 @@ export default function SearchTrains() {
     const [destSuggestions, setDestSuggestions] = useState([]);
     const [showSourceDropdown, setShowSourceDropdown] = useState(false);
     const [showDestDropdown, setShowDestDropdown] = useState(false);
+    const [sourceHighlightedIndex, setSourceHighlightedIndex] = useState(-1);
+    const [destHighlightedIndex, setDestHighlightedIndex] = useState(-1);
+    const [bookedTrainNumbersForDate, setBookedTrainNumbersForDate] = useState([]);
     const sourceRef = useRef(null);
     const destinationRef = useRef(null);
 
@@ -29,6 +32,7 @@ export default function SearchTrains() {
                 !sourceRef.current.contains(event.target)
             ) {
                 setShowSourceDropdown(false);
+                setSourceHighlightedIndex(-1);
             }
 
             if (
@@ -36,6 +40,7 @@ export default function SearchTrains() {
                 !destinationRef.current.contains(event.target)
             ) {
                 setShowDestDropdown(false);
+                setDestHighlightedIndex(-1);
             }
         };
 
@@ -65,6 +70,27 @@ export default function SearchTrains() {
     const isSameStation = (left, right) =>
         normalizeStationName(left) !== '' &&
         normalizeStationName(left) === normalizeStationName(right);
+
+    const isSourceSuggestionDisabled = (station) =>
+        isSameStation(station?.name, form.destinationStationName);
+
+    const isDestinationSuggestionDisabled = (station) =>
+        isSameStation(station?.name, form.sourceStationName);
+
+    const findNextEnabledIndex = (suggestions, currentIndex, direction, isDisabledFn) => {
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            return -1;
+        }
+
+        let nextIndex = currentIndex;
+        for (let i = 0; i < suggestions.length; i += 1) {
+            nextIndex = (nextIndex + direction + suggestions.length) % suggestions.length;
+            if (!isDisabledFn(suggestions[nextIndex])) {
+                return nextIndex;
+            }
+        }
+        return -1;
+    };
 
     const formatDateTime = (value) => {
         if (!value) return '-';
@@ -97,6 +123,98 @@ export default function SearchTrains() {
         setDestSuggestions(sourceSuggestions);
         setShowSourceDropdown(false);
         setShowDestDropdown(false);
+        setSourceHighlightedIndex(-1);
+        setDestHighlightedIndex(-1);
+    };
+
+    const handleSourceInputKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowSourceDropdown(true);
+            if (sourceSuggestions.length === 0) {
+                searchStations(form.sourceStationName, setSourceSuggestions);
+                return;
+            }
+            setSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceSuggestions, prev, 1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowSourceDropdown(true);
+            if (sourceSuggestions.length === 0) {
+                searchStations(form.sourceStationName, setSourceSuggestions);
+                return;
+            }
+            setSourceHighlightedIndex((prev) =>
+                findNextEnabledIndex(sourceSuggestions, prev, -1, isSourceSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showSourceDropdown && sourceHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = sourceSuggestions[sourceHighlightedIndex];
+            if (!station || isSourceSuggestionDisabled(station)) {
+                return;
+            }
+            setForm({ ...form, sourceStationName: station.name });
+            setShowSourceDropdown(false);
+            setSourceHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowSourceDropdown(false);
+            setSourceHighlightedIndex(-1);
+        }
+    };
+
+    const handleDestinationInputKeyDown = (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowDestDropdown(true);
+            if (destSuggestions.length === 0) {
+                searchStations(form.destinationStationName, setDestSuggestions);
+                return;
+            }
+            setDestHighlightedIndex((prev) =>
+                findNextEnabledIndex(destSuggestions, prev, 1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowDestDropdown(true);
+            if (destSuggestions.length === 0) {
+                searchStations(form.destinationStationName, setDestSuggestions);
+                return;
+            }
+            setDestHighlightedIndex((prev) =>
+                findNextEnabledIndex(destSuggestions, prev, -1, isDestinationSuggestionDisabled)
+            );
+            return;
+        }
+
+        if (event.key === 'Enter' && showDestDropdown && destHighlightedIndex >= 0) {
+            event.preventDefault();
+            const station = destSuggestions[destHighlightedIndex];
+            if (!station || isDestinationSuggestionDisabled(station)) {
+                return;
+            }
+            setForm({ ...form, destinationStationName: station.name });
+            setShowDestDropdown(false);
+            setDestHighlightedIndex(-1);
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            setShowDestDropdown(false);
+            setDestHighlightedIndex(-1);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -130,6 +248,52 @@ export default function SearchTrains() {
     const { user } = useUser();
     const isLoggedInUser = (user?.role || '').toUpperCase() === 'USER';
     const bookingLoginMessage = 'Please Login as a USER to Book Tickets';
+    const maxSeatsPerBookingRequest = 9;
+
+    useEffect(() => {
+        if (!isLoggedInUser || !user?.id || !form.travelDate) {
+            setBookedTrainNumbersForDate([]);
+            return;
+        }
+
+        let cancelled = false;
+        const selectedDate = formatDate(form.travelDate);
+
+        const fetchBookedTrains = async () => {
+            try {
+                const response = await fetch(`/api/bookings/user/${user.id}`);
+                if (!response.ok) {
+                    if (!cancelled) {
+                        setBookedTrainNumbersForDate([]);
+                    }
+                    return;
+                }
+
+                const bookings = await response.json();
+                const bookedTrainNumbers = (Array.isArray(bookings) ? bookings : [])
+                    .filter((booking) =>
+                        String(booking?.status || '').toUpperCase() === 'BOOKED' &&
+                        booking?.travelDate === selectedDate
+                    )
+                    .map((booking) => booking?.trainNumber)
+                    .filter(Boolean);
+
+                if (!cancelled) {
+                    setBookedTrainNumbersForDate(bookedTrainNumbers);
+                }
+            } catch {
+                if (!cancelled) {
+                    setBookedTrainNumbersForDate([]);
+                }
+            }
+        };
+
+        fetchBookedTrains();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [form.travelDate, isLoggedInUser, user?.id]);
 
     const openBookingForm = (train) => {
         if (!user || !isLoggedInUser) {
@@ -158,6 +322,12 @@ export default function SearchTrains() {
 
             if (response.ok) {
                 alert('Train booked successfully');
+                setBookedTrainNumbersForDate((prev) => {
+                    if (!selectedTrain?.trainNumber || prev.includes(selectedTrain.trainNumber)) {
+                        return prev;
+                    }
+                    return [...prev, selectedTrain.trainNumber];
+                });
                 setShowBookingForm(false);
             } else {
                 const err = await response.text();
@@ -190,14 +360,17 @@ export default function SearchTrains() {
                             placeholder="Type source station"
                             onFocus={() => {
                                 setShowSourceDropdown(true);
+                                setSourceHighlightedIndex(-1);
                                 searchStations(form.sourceStationName, setSourceSuggestions);
                             }}
                             onChange={(e) => {
                                 const value = e.target.value;
                                 setForm({ ...form, sourceStationName: value });
                                 setShowSourceDropdown(true);
+                                setSourceHighlightedIndex(-1);
                                 searchStations(value, setSourceSuggestions);
                             }}
+                            onKeyDown={handleSourceInputKeyDown}
                             required
                         />
 
@@ -210,17 +383,14 @@ export default function SearchTrains() {
                                     overflowX: 'hidden'
                                 }}
                             >
-                                {sourceSuggestions.map(station => {
-                                    const isDisabled = isSameStation(
-                                        station.name,
-                                        form.destinationStationName
-                                    );
+                                {sourceSuggestions.map((station, index) => {
+                                    const isDisabled = isSourceSuggestionDisabled(station);
 
                                     return (
                                         <li key={station.id}>
                                         <button
                                             type="button"
-                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === sourceHighlightedIndex ? ' active' : ''}`}
                                             disabled={isDisabled}
                                             style={{
                                                 whiteSpace: 'nowrap',
@@ -230,10 +400,16 @@ export default function SearchTrains() {
                                                 opacity: isDisabled ? 0.6 : 1,
                                                 cursor: isDisabled ? 'not-allowed' : 'pointer'
                                             }}
+                                            onMouseEnter={() => {
+                                                if (!isDisabled) {
+                                                    setSourceHighlightedIndex(index);
+                                                }
+                                            }}
                                             onClick={() => {
                                                 if (isDisabled) return;
                                                 setForm({ ...form, sourceStationName: station.name });
                                                 setShowSourceDropdown(false);
+                                                setSourceHighlightedIndex(-1);
                                             }}
                                         >
                                             {station.name} ({station.code})
@@ -266,14 +442,17 @@ export default function SearchTrains() {
                             placeholder="Type destination station"
                             onFocus={() => {
                                 setShowDestDropdown(true);
+                                setDestHighlightedIndex(-1);
                                 searchStations(form.destinationStationName, setDestSuggestions);
                             }}
                             onChange={(e) => {
                                 const value = e.target.value;
                                 setForm({ ...form, destinationStationName: value });
                                 setShowDestDropdown(true);
+                                setDestHighlightedIndex(-1);
                                 searchStations(value, setDestSuggestions);
                             }}
+                            onKeyDown={handleDestinationInputKeyDown}
                             required
                         />
 
@@ -286,17 +465,14 @@ export default function SearchTrains() {
                                     overflowX: 'hidden'
                                 }}
                             >
-                                {destSuggestions.map(station => {
-                                    const isDisabled = isSameStation(
-                                        station.name,
-                                        form.sourceStationName
-                                    );
+                                {destSuggestions.map((station, index) => {
+                                    const isDisabled = isDestinationSuggestionDisabled(station);
 
                                     return (
                                         <li key={station.id}>
                                         <button
                                             type="button"
-                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}`}
+                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === destHighlightedIndex ? ' active' : ''}`}
                                             disabled={isDisabled}
                                             style={{
                                                 whiteSpace: 'nowrap',
@@ -306,10 +482,16 @@ export default function SearchTrains() {
                                                 opacity: isDisabled ? 0.6 : 1,
                                                 cursor: isDisabled ? 'not-allowed' : 'pointer'
                                             }}
+                                            onMouseEnter={() => {
+                                                if (!isDisabled) {
+                                                    setDestHighlightedIndex(index);
+                                                }
+                                            }}
                                             onClick={() => {
                                                 if (isDisabled) return;
                                                 setForm({ ...form, destinationStationName: station.name });
                                                 setShowDestDropdown(false);
+                                                setDestHighlightedIndex(-1);
                                             }}
                                         >
                                             {station.name} ({station.code})
@@ -373,22 +555,29 @@ export default function SearchTrains() {
                                         </td>
                                         <td>{train.seatsRemaining}</td>
                                         <td>
+                                            {(() => {
+                                                const isBooked = bookedTrainNumbersForDate.includes(train.trainNumber);
+                                                const cannotBook =
+                                                    isBooked || !isLoggedInUser || train.seatsRemaining <= 0;
+                                                const disabledMessage = !user || !isLoggedInUser
+                                                    ? bookingLoginMessage
+                                                    : (isBooked ? 'Already booked for selected date' : (train.seatsRemaining <= 0 ? 'No seats available' : ''));
+
+                                                return (
                                             <span
-                                                title={
-                                                    (!user || !isLoggedInUser)
-                                                        ? bookingLoginMessage
-                                                        : (train.seatsRemaining <= 0 ? 'No seats available' : '')
-                                                }
+                                                title={disabledMessage}
                                                 style={{ display: 'inline-block' }}
                                             >
                                                 <button
-                                                    className="btn btn-success btn-sm"
+                                                    className={`btn btn-sm ${isBooked ? 'btn-secondary' : 'btn-success'}`}
                                                     onClick={() => openBookingForm(train)}
-                                                    disabled={!isLoggedInUser || train.seatsRemaining <= 0}
+                                                    disabled={cannotBook}
                                                 >
-                                                    Book Now
+                                                    {isBooked ? 'Booked' : 'Book Now'}
                                                 </button>
                                             </span>
+                                                );
+                                            })()}
                                         </td>
                                     </tr>
                                 ))}
@@ -422,12 +611,25 @@ export default function SearchTrains() {
                                                     type="number"
                                                     className="form-control"
                                                     min="1"
-                                                    max={selectedTrain.seatsRemaining}
+                                                    max={Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)}
                                                     value={seatsBooked}
-                                                    onChange={(e) => setSeatsBooked(Number(e.target.value))}
+                                                    onChange={(e) => {
+                                                        const parsed = Number(e.target.value);
+                                                        if (Number.isNaN(parsed)) {
+                                                            setSeatsBooked(1);
+                                                            return;
+                                                        }
+
+                                                        const upperBound = Math.min(
+                                                            selectedTrain.seatsRemaining,
+                                                            maxSeatsPerBookingRequest
+                                                        );
+                                                        const clamped = Math.max(1, Math.min(parsed, upperBound));
+                                                        setSeatsBooked(clamped);
+                                                    }}
                                                 />
                                                 <small className="text-muted">
-                                                    Max available: {selectedTrain.seatsRemaining}
+                                                    Max available now: {Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)}
                                                 </small>
                                             </div>
                                         </div>
@@ -442,7 +644,10 @@ export default function SearchTrains() {
                                             <button
                                                 className="btn btn-success"
                                                 onClick={confirmBooking}
-                                                disabled={seatsBooked < 1 || seatsBooked > selectedTrain.seatsRemaining}
+                                                disabled={
+                                                    seatsBooked < 1 ||
+                                                    seatsBooked > Math.min(selectedTrain.seatsRemaining, maxSeatsPerBookingRequest)
+                                                }
                                             >
                                                 Confirm Booking
                                             </button>

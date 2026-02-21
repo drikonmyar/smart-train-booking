@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BookingServiceImpl implements BookingService {
 
+    private static final int MAX_BOOKED_SEATS_PER_USER_PER_TRAIN_PER_DAY = 9;
+
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final TrainRepository trainRepository;
@@ -36,12 +38,60 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     @Override
     public BookingResponse createBooking(CreateBookingRequest request) {
+        Integer requestedSeats = request.getSeatsBooked();
+        if (requestedSeats == null || requestedSeats <= 0) {
+            throw new RuntimeException("Seats booked must be at least 1");
+        }
+        if (request.getTravelDate() == null) {
+            throw new RuntimeException("Travel date is required");
+        }
+        if (requestedSeats > MAX_BOOKED_SEATS_PER_USER_PER_TRAIN_PER_DAY) {
+            throw new RuntimeException("Maximum seats per booking is 9");
+        }
 
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Train train = trainRepository.findById(request.getTrainId())
                 .orElseThrow(() -> new RuntimeException("Train not found"));
+
+        boolean hasActiveBookingForSameDay = bookingRepository
+                .existsByUserIdAndTrainIdAndTravelDateAndStatusIgnoreCase(
+                        user.getId(),
+                        train.getId(),
+                        request.getTravelDate(),
+                        "BOOKED"
+                );
+
+        if (hasActiveBookingForSameDay) {
+            throw new RuntimeException(
+                    "You already have an active booking for this train on "
+                            + request.getTravelDate()
+                            + ". Please terminate/cancel it before booking again."
+            );
+        }
+
+        int alreadyBookedSeats = Optional.ofNullable(
+                bookingRepository.findBookedSeatsForUserAndTrainAndDate(
+                        user.getId(),
+                        train.getId(),
+                        request.getTravelDate()
+                )
+        ).orElse(0);
+        if (alreadyBookedSeats >= MAX_BOOKED_SEATS_PER_USER_PER_TRAIN_PER_DAY) {
+            throw new RuntimeException("Booking limit reached. A user can book at most 9 seats per train per day.");
+        }
+
+        int remainingSeatsAllowed = MAX_BOOKED_SEATS_PER_USER_PER_TRAIN_PER_DAY - alreadyBookedSeats;
+        if (requestedSeats > remainingSeatsAllowed) {
+            throw new RuntimeException(
+                    "Booking limit exceeded. You can book only "
+                            + remainingSeatsAllowed
+                            + " more seat(s) for this train on "
+                            + request.getTravelDate()
+                            + "."
+            );
+        }
 
         RouteSelection routeSelection = resolveRouteSelection(train, request);
         LocalDate originServiceDate = resolveOriginServiceDate(
@@ -65,12 +115,12 @@ public class BookingServiceImpl implements BookingService {
                             return availabilityRepository.save(a);
                         });
 
-        if (availability.getAvailableSeats() < request.getSeatsBooked()) {
+        if (availability.getAvailableSeats() < requestedSeats) {
             throw new RuntimeException("Not enough seats available");
         }
 
         availability.setAvailableSeats(
-                availability.getAvailableSeats() - request.getSeatsBooked()
+                availability.getAvailableSeats() - requestedSeats
         );
 
         Booking booking = new Booking();
@@ -79,7 +129,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setSourceStation(routeSelection.sourceStation());
         booking.setDestinationStation(routeSelection.destinationStation());
         booking.setTravelDate(request.getTravelDate());
-        booking.setSeatsBooked(request.getSeatsBooked());
+        booking.setSeatsBooked(requestedSeats);
         booking.setStatus("BOOKED");
 
         bookingRepository.save(booking);
