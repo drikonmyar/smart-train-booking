@@ -79,7 +79,6 @@ export default function Trains() {
     const [deleting, setDeleting] = useState(false);
 
     const [flash, setFlash] = useState(null);
-    const [actionLoadingId, setActionLoadingId] = useState(null);
     const sourceStationRef = useRef(null);
     const destinationStationRef = useRef(null);
     const filterSourceRef = useRef(null);
@@ -481,31 +480,6 @@ export default function Trains() {
             });
         } finally {
             setDeleting(false);
-        }
-    };
-
-    const toggleStatus = async (event, train) => {
-        event.stopPropagation();
-        const nextStatus = train.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-        setActionLoadingId(train.id);
-
-        try {
-            await api.patch(`/admin/trains/${train.id}/status`, null, {
-                headers: adminHeaders,
-                params: { status: nextStatus }
-            });
-            setFlash({
-                type: 'success',
-                message: `Train set to ${nextStatus}`
-            });
-            await fetchTrains();
-        } catch (error) {
-            setFlash({
-                type: 'danger',
-                message: extractErrorMessage(error, 'Failed to update status')
-            });
-        } finally {
-            setActionLoadingId(null);
         }
     };
 
@@ -970,7 +944,7 @@ export default function Trains() {
                                         Created At {sortLabel('createdAt')}
                                     </th>
                                     <th>Modified At</th>
-                                    <th style={{ minWidth: 210 }}>Actions</th>
+                                    <th style={{ width: 130, minWidth: 130 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1020,15 +994,6 @@ export default function Trains() {
                                                         disabled={deleting}
                                                     >
                                                         Delete
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-outline-warning"
-                                                        onClick={(event) => toggleStatus(event, train)}
-                                                        disabled={actionLoadingId === train.id}
-                                                    >
-                                                        {actionLoadingId === train.id
-                                                            ? '...'
-                                                            : (train.status === 'ACTIVE' ? 'Disable' : 'Enable')}
                                                     </button>
                                                 </div>
                                             </td>

@@ -25,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -207,6 +208,7 @@ public class TrainServiceImpl implements TrainService {
     }
 
     @Override
+    @Transactional
     public TrainAdminResponse updateAdminTrain(Long id, TrainAdminRequest request) {
         Train train = getTrainById(id);
 
@@ -380,10 +382,29 @@ public class TrainServiceImpl implements TrainService {
             train.setRunningDays(EnumSet.allOf(DayOfWeek.class));
         }
 
-        List<TrainRouteStation> routeStations = new ArrayList<>();
+        replaceRouteStations(train, sourceStation, destinationStation, minutesFromSource);
+    }
+
+    private void replaceRouteStations(
+            Train train,
+            Station sourceStation,
+            Station destinationStation,
+            int minutesFromSource
+    ) {
+        List<TrainRouteStation> routeStations = train.getRouteStations();
+        if (routeStations == null) {
+            routeStations = new ArrayList<>();
+            train.setRouteStations(routeStations);
+        } else {
+            routeStations.clear();
+            if (train.getId() != null) {
+                // Force orphan removals before inserts to avoid unique key collisions on (train_id, stop_order).
+                trainRepository.flush();
+            }
+        }
+
         routeStations.add(buildRouteStop(train, sourceStation, 0, 0));
         routeStations.add(buildRouteStop(train, destinationStation, 1, minutesFromSource));
-        train.setRouteStations(routeStations);
     }
 
     private TrainRouteStation buildRouteStop(
