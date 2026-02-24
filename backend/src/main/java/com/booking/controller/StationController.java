@@ -32,16 +32,6 @@ public class StationController {
         return new ResponseEntity<>(station, HttpStatus.CREATED);
     }
 
-    @PostMapping("/bulkcreate")
-    public ResponseEntity<List<Long>> createMultipleStations(
-            @RequestHeader(value = "X-User-Role", required = false) String userRole,
-            @RequestBody List<CreateStationRequest> requests
-    ) {
-        requireAdmin(userRole);
-        List<Long> stationIds = stationService.createMultipleStations(requests);
-        return ResponseEntity.status(201).body(stationIds);
-    }
-
     @GetMapping("/search")
     public List<StationResponse> searchStations(
             @RequestParam(required = false, defaultValue = "") String q,

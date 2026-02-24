@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -29,23 +28,6 @@ public class StationServiceImpl implements StationService {
         station.setCode(request.getCode());
 
         return stationRepository.save(station);
-    }
-
-    @Override
-    public List<Long> createMultipleStations(List<CreateStationRequest> requests) {
-        List<Station> stations = new ArrayList<>();
-
-        for (CreateStationRequest request : requests) {
-            Station station = new Station();
-            station.setName(request.getName());
-            station.setCode(request.getCode());
-            stations.add(station);
-        }
-
-        List<Station> savedStations = stationRepository.saveAll(stations);
-
-        // return IDs of created stations
-        return savedStations.stream().map(Station::getId).toList();
     }
 
     @Override

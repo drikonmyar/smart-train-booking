@@ -89,28 +89,6 @@ public class AdminTrainController {
         return trainService.updateAdminTrain(id, request);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteTrain(
-            @RequestHeader(value = "X-User-Role", required = false) String userRole,
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "false") boolean hardDelete
-    ) {
-        requireAdmin(userRole);
-        trainService.deleteAdminTrain(id, hardDelete);
-        String message = hardDelete ? "Train deleted permanently" : "Train marked as inactive";
-        return ResponseEntity.ok(message);
-    }
-
-    @PatchMapping("/{id}/status")
-    public TrainAdminResponse updateTrainStatus(
-            @RequestHeader(value = "X-User-Role", required = false) String userRole,
-            @PathVariable Long id,
-            @RequestParam(required = false) TrainStatus status
-    ) {
-        requireAdmin(userRole);
-        return trainService.toggleTrainStatus(id, status);
-    }
-
     private void requireAdmin(String userRole) {
         if (userRole == null || !userRole.equalsIgnoreCase("ADMIN")) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only ADMIN can access this resource");
