@@ -297,7 +297,7 @@ export default function MyBookings() {
 
     return (
         <div
-            className="container-fluid"
+            className="container-fluid app-shell"
             style={{
                 position: 'fixed',
                 top: navbarOffset,
@@ -306,13 +306,13 @@ export default function MyBookings() {
                 bottom: 0,
                 paddingTop: 8,
                 paddingBottom: 16,
-                background: '#f8f9fa',
                 display: 'flex',
                 justifyContent: 'center',
                 overflow: 'hidden'
             }}
         >
             <div
+                className="app-shell-inner"
                 style={{
                     width: '100%',
                     maxWidth: 1320,
@@ -325,7 +325,7 @@ export default function MyBookings() {
                     overflow: 'hidden'
                 }}
             >
-                <h3 className="mb-3 text-center">My Bookings</h3>
+                <h3 className="mb-3 text-center page-title">My Bookings</h3>
 
                 {flash && <div className="alert alert-success py-2">{flash}</div>}
                 {error && <div className="alert alert-danger py-2">{error}</div>}

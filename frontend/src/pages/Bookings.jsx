@@ -249,7 +249,7 @@ const BookingsPage = () => {
 
     return (
         <div
-            className="container-fluid"
+            className="container-fluid app-shell"
             style={{
                 position: 'fixed',
                 top: navbarOffset,
@@ -258,13 +258,13 @@ const BookingsPage = () => {
                 bottom: 0,
                 paddingTop: 8,
                 paddingBottom: 16,
-                background: '#f8f9fa',
                 display: 'flex',
                 justifyContent: 'center',
                 overflow: 'hidden'
             }}
         >
             <div
+                className="app-shell-inner"
                 style={{
                     width: '100%',
                     maxWidth: 1320,
@@ -278,7 +278,7 @@ const BookingsPage = () => {
                 }}
             >
 
-                    <h3 className="mb-3 text-center">Admin Booking Search</h3>
+                    <h3 className="mb-3 text-center page-title">Admin Booking Search</h3>
                     {error && (
                         <div className="alert alert-danger py-2">{error}</div>
                     )}

@@ -167,7 +167,7 @@ const StationsPage = () => {
     const navbarOffset = 72;
 
     return (
-        <div style={{
+        <div className="app-shell" style={{
             position: 'fixed',
             top: navbarOffset,
             left: 0,
@@ -175,12 +175,11 @@ const StationsPage = () => {
             bottom: 0,
             display: 'flex',
             justifyContent: 'center',
-            background: '#f8f9fa',
             paddingTop: 12,
             paddingBottom: 16,
             overflow: 'hidden'
         }}>
-            <div style={{
+            <div className="app-shell-inner" style={{
                 width: '100%',
                 maxWidth: 1000,
                 paddingLeft: 12,
@@ -192,7 +191,7 @@ const StationsPage = () => {
                 overflow: 'hidden'
             }}>
 
-                <h3 className="mb-4 text-center">Station Management</h3>
+                <h3 className="mb-4 text-center page-title">Station Management</h3>
 
                 {/* ---------- SEARCH & DATE FILTERS ---------- */}
                 <div className="card p-3 mb-4">

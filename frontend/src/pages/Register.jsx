@@ -46,21 +46,10 @@ export default function Register() {
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: '#f8f9fa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 0
-        }}>
-            <div className="card shadow-sm" style={{ width: '100%', maxWidth: 450 }}>
+        <div className="auth-shell">
+            <div className="card shadow-sm auth-card" style={{ width: '100%', maxWidth: 500 }}>
                 <div className="card-body">
-                    <h3 className="card-title mb-4 text-center">Register</h3>
+                    <h3 className="card-title mb-4 text-center auth-title">Create Account</h3>
                     <form onSubmit={handleSubmit}>
                         {error && <div className="alert alert-danger py-2">{error}</div>}
                         {success && <div className="alert alert-success py-2">{success}</div>}
@@ -125,7 +114,7 @@ export default function Register() {
                             />
                         </div>
                         <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-                            {loading ? 'Registering...' : 'Register'}
+                            {loading ? 'Creating Account...' : 'Register'}
                         </button>
                     </form>
                     <div className="mt-3 text-center">

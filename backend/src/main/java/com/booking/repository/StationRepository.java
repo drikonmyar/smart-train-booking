@@ -9,10 +9,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface StationRepository extends JpaRepository<Station, Long> {
-    List<Station> findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(
-            String name,
-            String code);
-
     @Query("""
             SELECT s FROM Station s
             WHERE

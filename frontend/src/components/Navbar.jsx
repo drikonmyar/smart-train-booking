@@ -6,9 +6,10 @@ export default function Navbar() {
     const { user } = useUser();
     const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
     return (
-        <nav className="navbar navbar-expand-lg navbar-dark bg-dark fixed-top w-100">
-            <div className="container-fluid">
-                <Link className="navbar-brand fw-bold" to="/">
+        <nav className="navbar navbar-expand-lg navbar-dark fixed-top w-100 app-navbar">
+            <div className="container-fluid app-navbar-inner">
+                <Link className="navbar-brand fw-bold d-flex align-items-center gap-2" to="/">
+                    <span className="brand-chip">STB</span>
                     Smart Train Booking
                 </Link>
                 <button
@@ -23,7 +24,7 @@ export default function Navbar() {
                     <span className="navbar-toggler-icon"></span>
                 </button>
                 <div className="collapse navbar-collapse justify-content-end" id="navbarNav">
-                    <ul className="navbar-nav align-items-center">
+                    <ul className="navbar-nav align-items-lg-center align-items-start gap-lg-1">
                         {!user && <>
                             <li className="nav-item">
                                 <Link className="nav-link" to="/login">Login</Link>
@@ -55,7 +56,7 @@ export default function Navbar() {
                                 <Link className="nav-link" to="/my-bookings">My Bookings</Link>
                             </li>
                         )}
-                        {user && <li className="nav-item ms-3"><UserMenu /></li>}
+                        {user && <li className="nav-item ms-lg-3 mt-2 mt-lg-0"><UserMenu /></li>}
                     </ul>
                 </div>
             </div>

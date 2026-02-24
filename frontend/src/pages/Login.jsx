@@ -40,20 +40,10 @@ const Login = () => {
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: '#f8f9fa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-        }}>
-            <div className="card shadow-sm" style={{ width: '100%', maxWidth: 400 }}>
+        <div className="auth-shell">
+            <div className="card shadow-sm auth-card" style={{ width: '100%', maxWidth: 420 }}>
                 <div className="card-body">
-                    <h3 className="card-title mb-4 text-center">Login</h3>
+                    <h3 className="card-title mb-4 text-center auth-title">Welcome Back</h3>
 
                     <form onSubmit={handleSubmit}>
                         <div className="mb-3">
@@ -85,7 +75,7 @@ const Login = () => {
                         )}
 
                         <button type="submit" className="btn btn-primary w-100">
-                            Login
+                            Sign In
                         </button>
                     </form>
 

@@ -988,7 +988,7 @@ export default function Trains() {
 
     return (
         <div
-            className="container-fluid"
+            className="container-fluid app-shell"
             style={{
                 position: 'fixed',
                 top: navbarOffset,
@@ -997,13 +997,13 @@ export default function Trains() {
                 bottom: 0,
                 paddingTop: 8,
                 paddingBottom: 16,
-                background: '#f8f9fa',
                 display: 'flex',
                 justifyContent: 'center',
                 overflow: 'hidden'
             }}
         >
             <div
+                className="app-shell-inner"
                 style={{
                     width: '100%',
                     maxWidth: 1320,
@@ -1018,7 +1018,7 @@ export default function Trains() {
                 }}
             >
                 <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                    <h3 className="mb-0">Trains Management</h3>
+                    <h3 className="mb-0 page-title">Trains Management</h3>
                     <div className="d-flex gap-2">
                         <button className="btn btn-outline-success" onClick={exportCsv}>
                             Export CSV
@@ -1647,12 +1647,13 @@ export default function Trains() {
                                     </div>
                                     {!editingTrainId && (
                                         <div className="col-md-4">
-                                            <label className="form-label">Total Duration (Minutes)</label>
+                                            <label className="form-label">Total Duration</label>
                                             <input
                                                 type="number"
                                                 className="form-control"
                                                 min="1"
                                                 value={formData.journeyDurationMinutes}
+                                                placeholder="in Minutes"
                                                 onChange={(event) => {
                                                     const raw = event.target.value;
                                                     const sanitized = raw.replace(/[^0-9]/g, '');

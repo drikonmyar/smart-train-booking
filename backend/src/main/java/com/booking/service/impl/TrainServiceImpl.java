@@ -1,11 +1,9 @@
 package com.booking.service.impl;
 
-import com.booking.dto.CreateTrainRequest;
 import com.booking.dto.SearchTrainRequest;
 import com.booking.dto.TrainAdminDetailsResponse;
 import com.booking.dto.TrainAdminRequest;
 import com.booking.dto.TrainAdminResponse;
-import com.booking.dto.TrainRouteStopRequest;
 import com.booking.dto.TrainRouteStopResponse;
 import com.booking.dto.TrainSearchResponse;
 import com.booking.entity.Booking;
@@ -36,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -55,12 +52,6 @@ public class TrainServiceImpl implements TrainService {
     private final StationRepository stationRepository;
     private final TrainSeatAvailabilityRepository seatAvailabilityRepository;
     private final BookingRepository bookingRepository;
-
-    @Override
-    public Train createTrain(CreateTrainRequest request) {
-        Train train = buildTrainFromRequest(request);
-        return trainRepository.save(train);
-    }
 
     @Override
     public List<TrainSearchResponse> searchTrains(SearchTrainRequest request) {
@@ -159,21 +150,6 @@ public class TrainServiceImpl implements TrainService {
     }
 
     @Override
-    public List<Long> createMultipleTrains(List<CreateTrainRequest> requests) {
-
-        List<Train> trains = new ArrayList<>();
-
-        for (CreateTrainRequest request : requests) {
-            trains.add(buildTrainFromRequest(request));
-        }
-
-        List<Train> savedTrains = trainRepository.saveAll(trains);
-
-        // return IDs of created trains
-        return savedTrains.stream().map(Train::getId).toList();
-    }
-
-    @Override
     public Page<TrainAdminResponse> getAdminTrains(
             String trainNumber,
             String trainName,
@@ -234,47 +210,6 @@ public class TrainServiceImpl implements TrainService {
         } else {
             terminateBookingsForNonRunningDays(saved);
             syncSeatAvailabilityWithUpdatedCapacity(saved);
-        }
-        return mapToAdminResponse(saved);
-    }
-
-    @Override
-    @Transactional
-    public void deleteAdminTrain(Long id, boolean hardDelete) {
-        Train train = getTrainById(id);
-
-        if (hardDelete) {
-            if (!bookingRepository.findByTrainId(id).isEmpty()) {
-                throw new RuntimeException("Cannot hard delete train with existing bookings");
-            }
-            seatAvailabilityRepository.deleteByTrain(train);
-            trainRepository.delete(train);
-            return;
-        }
-
-        train.setStatus(TrainStatus.INACTIVE);
-        trainRepository.save(train);
-        terminateActiveBookingsForInactiveTrain(train);
-    }
-
-    @Override
-    @Transactional
-    public TrainAdminResponse toggleTrainStatus(Long id, TrainStatus status) {
-        Train train = getTrainById(id);
-        TrainStatus nextStatus;
-
-        if (status == null) {
-            nextStatus = train.getStatus() == TrainStatus.ACTIVE
-                    ? TrainStatus.INACTIVE
-                    : TrainStatus.ACTIVE;
-        } else {
-            nextStatus = status;
-        }
-
-        train.setStatus(nextStatus);
-        Train saved = trainRepository.save(train);
-        if (nextStatus == TrainStatus.INACTIVE) {
-            terminateActiveBookingsForInactiveTrain(saved);
         }
         return mapToAdminResponse(saved);
     }
@@ -664,85 +599,6 @@ public class TrainServiceImpl implements TrainService {
         return (int) diff;
     }
 
-    private Train buildTrainFromRequest(CreateTrainRequest request) {
-        if (request.getDepartureTime() == null) {
-            throw new RuntimeException("Departure time is required");
-        }
-        if (request.getTotalSeats() == null || request.getTotalSeats() <= 0) {
-            throw new RuntimeException("Total seats must be greater than zero");
-        }
-
-        List<RouteStopInput> routeStops = resolveRouteStops(request);
-
-        Train train = new Train();
-        train.setTrainNumber(request.getTrainNumber());
-        train.setTrainName(request.getTrainName());
-        train.setSourceStation(routeStops.getFirst().station());
-        train.setDestinationStation(routeStops.getLast().station());
-        train.setDepartureTime(request.getDepartureTime());
-        train.setTotalSeats(request.getTotalSeats());
-        if (request.getRunningDays() == null || request.getRunningDays().isEmpty()) {
-            train.setRunningDays(EnumSet.allOf(DayOfWeek.class));
-        } else {
-            train.setRunningDays(request.getRunningDays());
-        }
-        train.setStatus(TrainStatus.ACTIVE);
-
-        List<TrainRouteStation> routeStations = new ArrayList<>();
-        for (int index = 0; index < routeStops.size(); index++) {
-            RouteStopInput routeStop = routeStops.get(index);
-
-            TrainRouteStation routeStation = new TrainRouteStation();
-            routeStation.setTrain(train);
-            routeStation.setStation(routeStop.station());
-            routeStation.setStopOrder(index);
-            routeStation.setMinutesFromSource(routeStop.minutesFromSource());
-            routeStations.add(routeStation);
-        }
-        train.setRouteStations(routeStations);
-
-        return train;
-    }
-
-    private List<RouteStopInput> resolveRouteStops(CreateTrainRequest request) {
-        List<TrainRouteStopRequest> routeStops = request.getRouteStops();
-        if (routeStops == null || routeStops.size() < 2) {
-            throw new RuntimeException("Train route must contain at least two stations");
-        }
-
-        Set<Long> uniqueStationIds = new HashSet<>();
-        List<RouteStopInput> resolvedRouteStops = new ArrayList<>();
-        int previousMinutesFromSource = -1;
-
-        for (int index = 0; index < routeStops.size(); index++) {
-            TrainRouteStopRequest routeStop = routeStops.get(index);
-            if (routeStop.getStationId() == null) {
-                throw new RuntimeException("Route station id cannot be null");
-            }
-            if (routeStop.getMinutesFromSource() == null || routeStop.getMinutesFromSource() < 0) {
-                throw new RuntimeException("minutesFromSource must be zero or positive");
-            }
-            if (index == 0 && routeStop.getMinutesFromSource() != 0) {
-                throw new RuntimeException("First route station must have minutesFromSource = 0");
-            }
-            if (routeStop.getMinutesFromSource() <= previousMinutesFromSource) {
-                throw new RuntimeException("Route station minutes must be strictly increasing");
-            }
-            if (!uniqueStationIds.add(routeStop.getStationId())) {
-                throw new RuntimeException("Duplicate stations are not allowed in train route");
-            }
-
-            Station station = stationRepository.findById(routeStop.getStationId())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Station not found for id: " + routeStop.getStationId()
-                    ));
-            resolvedRouteStops.add(new RouteStopInput(station, routeStop.getMinutesFromSource()));
-            previousMinutesFromSource = routeStop.getMinutesFromSource();
-        }
-
-        return resolvedRouteStops;
-    }
-
     private String normalizeStationName(String value, String errorMessage) {
         if (value == null || value.trim().isEmpty()) {
             throw new RuntimeException(errorMessage);
@@ -797,9 +653,6 @@ public class TrainServiceImpl implements TrainService {
         int sourceAbsoluteMinutes = departureMinutes + sourceMinutesFromSource;
         int sourceDayShift = Math.floorDiv(sourceAbsoluteMinutes, 24 * 60);
         return sourceTravelDate.minusDays(sourceDayShift);
-    }
-
-    private record RouteStopInput(Station station, Integer minutesFromSource) {
     }
 
     private record RouteStopInfo(Station station, Integer stopOrder, Integer minutesFromSource) {

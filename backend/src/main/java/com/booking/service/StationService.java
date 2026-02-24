@@ -10,7 +10,6 @@ import java.util.List;
 
 public interface StationService {
     Station createStation(CreateStationRequest request);
-    List<Long> createMultipleStations(List<CreateStationRequest> requests);
     List<StationResponse> searchStations(String query, LocalDate createdFrom, LocalDate createdTo, LocalDate modifiedFrom, LocalDate modifiedTo);
     Station updateStation(Long id, UpdateStationRequest request);
 }
