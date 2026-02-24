@@ -45,15 +45,15 @@ export default function UserMenu() {
     };
 
     return (
-        <div className="dropdown" style={{ position: 'relative' }} ref={menuRef}>
+        <div className="dropdown user-menu" ref={menuRef}>
             <img
                 src={getAvatarUrl(user.username)}
                 alt="avatar"
-                style={{ width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', border: '2px solid #ccc' }}
+                className="user-avatar"
                 onClick={() => setOpen(v => !v)}
             />
             {open && (
-                <div className="dropdown-menu show" style={{ right: 0, left: 'auto', minWidth: 200, position: 'absolute', top: 40, zIndex: 1000 }}>
+                <div className="dropdown-menu show user-dropdown">
                     <div className="px-3 py-2">
                         <div className="fw-bold">{user.fullName}</div>
                         <div className="text-muted small">{user.email}</div>

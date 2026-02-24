@@ -406,18 +406,13 @@ export default function SearchTrains() {
     };
 
     return (
-        <div style={{
-            minHeight: '90vh',
-            width: '100vw',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f8f9fa',
-        }}>
-            <div style={{ width: '100%', maxWidth: 900 }}>
-                <h3 className="mb-4 text-center">Search Trains</h3>
-                <form className="row g-3 mb-4 justify-content-center" onSubmit={handleSubmit}>
-                    <div className="col-md-3 position-relative" ref={sourceRef}>
+        <div className="search-shell">
+            <div className="search-shell-inner">
+                <h3 className="mb-2 text-center page-title">Find Your Route</h3>
+                <p className="text-center text-muted mb-4">Search live train schedules and book seats instantly.</p>
+                <form className="mb-4 card p-3 search-form search-form-inline" onSubmit={handleSubmit}>
+                    <div className="search-inline-route-group">
+                    <div className="position-relative search-inline-source" ref={sourceRef}>
                         <label className="form-label">Source Station</label>
 
                         <input
@@ -487,19 +482,25 @@ export default function SearchTrains() {
                             </ul>
                         )}
                     </div>
-                    <div className="col-md-1 d-flex align-items-end">
-                        <button
-                            type="button"
-                            className="btn btn-outline-secondary w-100"
-                            onClick={handleSwapStations}
-                            aria-label="Swap source and destination stations"
-                            title="Swap source and destination"
-                            style={{ minHeight: '38px', fontSize: '1.5rem', lineHeight: 1 }}
-                        >
-                            ⇄
-                        </button>
-                    </div>
-                    <div className="col-md-3 position-relative" ref={destinationRef}>
+                    <button
+                        type="button"
+                        className="btn swap-mid-btn"
+                        onClick={handleSwapStations}
+                        aria-label="Swap source and destination stations"
+                        title="Swap source and destination"
+                    >
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path
+                                d="M7.1 8.1 4.2 11l2.9 2.9M4.5 11h15m-2.6 2.9L19.8 11l-2.9-2.9"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </button>
+                    <div className="position-relative search-inline-destination" ref={destinationRef}>
                         <label className="form-label">Destination Station</label>
 
                         <input
@@ -569,19 +570,21 @@ export default function SearchTrains() {
                             </ul>
                         )}
                     </div>
-                    <div className="col-md-3">
+                    </div>
+                    <div className="search-inline-date">
                         <label className="form-label">Travel Date</label>
                         <DatePicker
                             selected={form.travelDate}
                             onChange={handleDateChange}
-                            className="form-control"
+                            className="form-control w-100"
+                            wrapperClassName="w-100"
                             dateFormat="yyyy-MM-dd"
                             placeholderText="Select a date"
                             minDate={new Date()}
                             required
                         />
                     </div>
-                    <div className="col-md-2 d-flex align-items-end">
+                    <div className="d-flex align-items-end search-inline-action">
                         <button type="submit" className="btn btn-primary w-100" disabled={loading}>
                             {loading ? 'Searching...' : 'Search'}
                         </button>
@@ -589,7 +592,7 @@ export default function SearchTrains() {
                 </form>
                 {error && <div className="alert alert-danger text-center">{error}</div>}
                 {results.length > 0 && (
-                    <div className="table-responsive mt-4">
+                    <div className="table-responsive mt-4 card p-0 overflow-hidden">
                         <table className="table table-bordered align-middle text-center">
                             <thead className="table-light">
                                 <tr>
@@ -650,70 +653,72 @@ export default function SearchTrains() {
                                 ))}
                             </tbody>
                         </table>
-                        {showBookingForm && (
-                            <div
-                                className="modal fade show"
-                                style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
-                            >
-                                <div className="modal-dialog modal-dialog-centered">
-                                    <div className="modal-content">
-                                        <div className="modal-header">
-                                            <h5 className="modal-title">Book Train</h5>
-                                            <button
-                                                type="button"
-                                                className="btn-close"
-                                                onClick={() => setShowBookingForm(false)}
-                                            ></button>
-                                        </div>
+                    </div>
+                )}
+                {showBookingForm && selectedTrain && (
+                    <div
+                        className="modal fade show search-booking-modal"
+                        style={{ display: 'block' }}
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable search-booking-dialog">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">Book Train</h5>
+                                    <button
+                                        type="button"
+                                        className="btn-close"
+                                        onClick={() => setShowBookingForm(false)}
+                                    ></button>
+                                </div>
 
-                                        <div className="modal-body">
-                                            <p><strong>{selectedTrain.trainName}</strong></p>
-                                            <p>
-                                                {selectedTrain.sourceStation} → {selectedTrain.destinationStation}
-                                            </p>
+                                <div className="modal-body">
+                                    <p><strong>{selectedTrain.trainName}</strong></p>
+                                    <p>
+                                        {selectedTrain.sourceStation} → {selectedTrain.destinationStation}
+                                    </p>
 
-                                            <div className="mb-3">
-                                                <label className="form-label">Number of Seats</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-control"
-                                                    min="1"
-                                                    max={getSeatUpperBound()}
-                                                    value={seatsBooked}
-                                                    onChange={handleSeatsInputChange}
-                                                    onBlur={handleSeatsInputBlur}
-                                                    onWheel={handleSeatsInputWheel}
-                                                    onFocus={(event) => event.target.select()}
-                                                />
-                                                <small className="text-muted">
-                                                    Max available now: {getSeatUpperBound()}
-                                                </small>
-                                            </div>
-                                        </div>
-
-                                        <div className="modal-footer">
-                                            <button
-                                                className="btn btn-secondary"
-                                                onClick={() => setShowBookingForm(false)}
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                className="btn btn-success"
-                                                onClick={confirmBooking}
-                                                disabled={
-                                                    parseSeatInputValue(seatsBooked) === null ||
-                                                    parseSeatInputValue(seatsBooked) < 1 ||
-                                                    parseSeatInputValue(seatsBooked) > getSeatUpperBound()
-                                                }
-                                            >
-                                                Confirm Booking
-                                            </button>
-                                        </div>
+                                    <div className="mb-3">
+                                        <label className="form-label">Number of Seats</label>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            min="1"
+                                            max={getSeatUpperBound()}
+                                            value={seatsBooked}
+                                            onChange={handleSeatsInputChange}
+                                            onBlur={handleSeatsInputBlur}
+                                            onWheel={handleSeatsInputWheel}
+                                            onFocus={(event) => event.target.select()}
+                                        />
+                                        <small className="text-muted">
+                                            Max available now: {getSeatUpperBound()}
+                                        </small>
                                     </div>
                                 </div>
+
+                                <div className="modal-footer">
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => setShowBookingForm(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-success"
+                                        onClick={confirmBooking}
+                                        disabled={
+                                            parseSeatInputValue(seatsBooked) === null ||
+                                            parseSeatInputValue(seatsBooked) < 1 ||
+                                            parseSeatInputValue(seatsBooked) > getSeatUpperBound()
+                                        }
+                                    >
+                                        Confirm Booking
+                                    </button>
+                                </div>
                             </div>
-                        )}
+                        </div>
                     </div>
                 )}
             </div>

@@ -20,7 +20,7 @@ function App() {
     <>
       <Navbar />
       <Routes>
-        <Route path="/" element={user ? <Navigate to="/search-trains" replace /> : <Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/search-trains" replace />} />
         <Route path="/login" element={user ? <Navigate to="/search-trains" replace /> : <Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/search-trains" element={<SearchTrains />} />
