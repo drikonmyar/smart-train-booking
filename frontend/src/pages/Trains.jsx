@@ -1647,12 +1647,13 @@ export default function Trains() {
                                     </div>
                                     {!editingTrainId && (
                                         <div className="col-md-4">
-                                            <label className="form-label">Total Duration (Minutes)</label>
+                                            <label className="form-label">Total Duration</label>
                                             <input
                                                 type="number"
                                                 className="form-control"
                                                 min="1"
                                                 value={formData.journeyDurationMinutes}
+                                                placeholder="in Minutes"
                                                 onChange={(event) => {
                                                     const raw = event.target.value;
                                                     const sanitized = raw.replace(/[^0-9]/g, '');
