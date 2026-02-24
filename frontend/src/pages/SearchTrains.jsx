@@ -263,7 +263,10 @@ export default function SearchTrains() {
     };
 
     const { user } = useUser();
-    const isLoggedInUser = (user?.role || '').toUpperCase() === 'USER';
+    const normalizedRole = (user?.role || '').toUpperCase();
+    const isLoggedInUser = normalizedRole === 'USER';
+    const isAdmin = normalizedRole === 'ADMIN';
+    const currentModeLabel = isAdmin ? 'Admin Mode' : (isLoggedInUser ? 'User Mode' : 'Guest Mode');
     const bookingLoginMessage = 'Please Login as a USER to Book Tickets';
     const maxSeatsPerBookingRequest = 9;
     const isSearchPopupOpen = showSourceDropdown || showDestDropdown || showTravelDatePopup;
@@ -452,7 +455,7 @@ export default function SearchTrains() {
                                 <span className="search-metric-label">Travel Date</span>
                             </div>
                             <div className="search-metric">
-                                <span className="search-metric-value">{isLoggedInUser ? 'User Mode' : 'Guest Mode'}</span>
+                                <span className="search-metric-value">{currentModeLabel}</span>
                                 <span className="search-metric-label">Booking Access</span>
                             </div>
                         </div>
