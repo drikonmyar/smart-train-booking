@@ -28,6 +28,10 @@ body {
   background: #f8f9fa;
 }
 
+.navbar.fixed-top {
+  z-index: 1200;
+}
+
 .react-datepicker-popper {
   z-index: 1055 !important;
 }
