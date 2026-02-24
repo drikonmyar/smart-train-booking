@@ -12,6 +12,9 @@ export default function SearchTrains() {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showIntroMessage, setShowIntroMessage] = useState(true);
+    const [hasSearched, setHasSearched] = useState(false);
+    const [showNoResultsMessage, setShowNoResultsMessage] = useState(false);
     const [showBookingForm, setShowBookingForm] = useState(false);
     const [selectedTrain, setSelectedTrain] = useState(null);
     const [seatsBooked, setSeatsBooked] = useState('1');
@@ -19,6 +22,7 @@ export default function SearchTrains() {
     const [destSuggestions, setDestSuggestions] = useState([]);
     const [showSourceDropdown, setShowSourceDropdown] = useState(false);
     const [showDestDropdown, setShowDestDropdown] = useState(false);
+    const [showTravelDatePopup, setShowTravelDatePopup] = useState(false);
     const [sourceHighlightedIndex, setSourceHighlightedIndex] = useState(-1);
     const [destHighlightedIndex, setDestHighlightedIndex] = useState(-1);
     const [bookedTrainNumbersForDate, setBookedTrainNumbersForDate] = useState([]);
@@ -77,6 +81,11 @@ export default function SearchTrains() {
     const isDestinationSuggestionDisabled = (station) =>
         isSameStation(station?.name, form.sourceStationName);
 
+    const hideSearchHintMessages = () => {
+        setShowIntroMessage(false);
+        setShowNoResultsMessage(false);
+    };
+
     const findNextEnabledIndex = (suggestions, currentIndex, direction, isDisabledFn) => {
         if (!Array.isArray(suggestions) || suggestions.length === 0) {
             return -1;
@@ -111,6 +120,7 @@ export default function SearchTrains() {
 
     const handleDateChange = (date) => {
         setForm({ ...form, travelDate: date });
+        hideSearchHintMessages();
     };
 
     const handleSwapStations = () => {
@@ -119,6 +129,7 @@ export default function SearchTrains() {
             sourceStationName: prev.destinationStationName,
             destinationStationName: prev.sourceStationName
         }));
+        hideSearchHintMessages();
         setSourceSuggestions(destSuggestions);
         setDestSuggestions(sourceSuggestions);
         setShowSourceDropdown(false);
@@ -161,6 +172,7 @@ export default function SearchTrains() {
                 return;
             }
             setForm({ ...form, sourceStationName: station.name });
+            hideSearchHintMessages();
             setShowSourceDropdown(false);
             setSourceHighlightedIndex(-1);
             return;
@@ -206,6 +218,7 @@ export default function SearchTrains() {
                 return;
             }
             setForm({ ...form, destinationStationName: station.name });
+            hideSearchHintMessages();
             setShowDestDropdown(false);
             setDestHighlightedIndex(-1);
             return;
@@ -220,6 +233,8 @@ export default function SearchTrains() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setHasSearched(true);
+        hideSearchHintMessages();
         setError('');
         setResults([]);
         try {
@@ -234,7 +249,9 @@ export default function SearchTrains() {
             });
             if (response.ok) {
                 const data = await response.json();
-                setResults(Array.isArray(data) ? data : []);
+                const trains = Array.isArray(data) ? data : [];
+                setResults(trains);
+                setShowNoResultsMessage(trains.length === 0);
             } else {
                 setError('No trains found or server error.');
             }
@@ -249,6 +266,14 @@ export default function SearchTrains() {
     const isLoggedInUser = (user?.role || '').toUpperCase() === 'USER';
     const bookingLoginMessage = 'Please Login as a USER to Book Tickets';
     const maxSeatsPerBookingRequest = 9;
+    const isSearchPopupOpen = showSourceDropdown || showDestDropdown || showTravelDatePopup;
+    const selectedTravelDateLabel = form.travelDate
+        ? form.travelDate.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        })
+        : 'Not selected';
 
     const getSeatUpperBound = () => {
         const remaining = Number(selectedTrain?.seatsRemaining);
@@ -406,23 +431,48 @@ export default function SearchTrains() {
     };
 
     return (
-        <div className="search-shell">
-            <div className="search-shell-inner">
-                <h3 className="mb-2 text-center page-title">Find Your Route</h3>
-                <p className="text-center text-muted mb-4">Search live train schedules and book seats instantly.</p>
-                <form className="mb-4 card p-3 search-form search-form-inline" onSubmit={handleSubmit}>
-                    <div className="search-inline-route-group">
-                    <div className="position-relative search-inline-source" ref={sourceRef}>
-                        <label className="form-label">Source Station</label>
+        <div className="search-shell premium-search-shell">
+            <div className="search-shell-inner premium-search-inner">
+                <section className="card p-4 p-lg-5 search-hero-card">
+                    <div className="search-hero-content">
+                        <div>
+                            <span className="search-hero-tag">Smart Rail Experience</span>
+                            <h1 className="mb-2 page-title search-hero-title">Search live routes and book in minutes.</h1>
+                            <p className="mb-0 search-hero-copy">
+                                Compare departures, check availability, and reserve seats from one streamlined screen.
+                            </p>
+                        </div>
+                        <div className="search-hero-metrics">
+                            <div className="search-metric">
+                                <span className="search-metric-value">{results.length}</span>
+                                <span className="search-metric-label">Trains Found</span>
+                            </div>
+                            <div className="search-metric">
+                                <span className="search-metric-value">{selectedTravelDateLabel}</span>
+                                <span className="search-metric-label">Travel Date</span>
+                            </div>
+                            <div className="search-metric">
+                                <span className="search-metric-value">{isLoggedInUser ? 'User Mode' : 'Guest Mode'}</span>
+                                <span className="search-metric-label">Booking Access</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                        <input
-                            type="text"
-                            className="form-control"
-                            value={form.sourceStationName}
-                            placeholder="Type source station"
+                <form className="mb-2 card p-3 p-lg-4 search-form search-form-inline premium-search-form" onSubmit={handleSubmit}>
+                    <div className="search-inline-route-group">
+                        <div className="position-relative search-inline-source search-field-shell" ref={sourceRef}>
+                            <label className="form-label premium-field-label">Source Station</label>
+
+                            <input
+                                type="text"
+                                className="form-control premium-input"
+                                value={form.sourceStationName}
+                                placeholder="Type source station"
                             onFocus={() => {
                                 setShowSourceDropdown(true);
                                 setSourceHighlightedIndex(-1);
+                                hideSearchHintMessages();
                                 searchStations(form.sourceStationName, setSourceSuggestions);
                             }}
                             onChange={(e) => {
@@ -430,87 +480,92 @@ export default function SearchTrains() {
                                 setForm({ ...form, sourceStationName: value });
                                 setShowSourceDropdown(true);
                                 setSourceHighlightedIndex(-1);
+                                hideSearchHintMessages();
                                 searchStations(value, setSourceSuggestions);
                             }}
-                            onKeyDown={handleSourceInputKeyDown}
-                            required
-                        />
-
-                        {showSourceDropdown && sourceSuggestions.length > 0 && (
-                            <ul
-                                className="dropdown-menu show w-100"
-                                style={{
-                                    maxHeight: '220px',
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden'
-                                }}
-                            >
-                                {sourceSuggestions.map((station, index) => {
-                                    const isDisabled = isSourceSuggestionDisabled(station);
-
-                                    return (
-                                        <li key={station.id}>
-                                        <button
-                                            type="button"
-                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === sourceHighlightedIndex ? ' active' : ''}`}
-                                            disabled={isDisabled}
-                                            style={{
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                maxWidth: '100%',
-                                                opacity: isDisabled ? 0.6 : 1,
-                                                cursor: isDisabled ? 'not-allowed' : 'pointer'
-                                            }}
-                                            onMouseEnter={() => {
-                                                if (!isDisabled) {
-                                                    setSourceHighlightedIndex(index);
-                                                }
-                                            }}
-                                            onClick={() => {
-                                                if (isDisabled) return;
-                                                setForm({ ...form, sourceStationName: station.name });
-                                                setShowSourceDropdown(false);
-                                                setSourceHighlightedIndex(-1);
-                                            }}
-                                        >
-                                            {station.name} ({station.code})
-                                        </button>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        )}
-                    </div>
-                    <button
-                        type="button"
-                        className="btn swap-mid-btn"
-                        onClick={handleSwapStations}
-                        aria-label="Swap source and destination stations"
-                        title="Swap source and destination"
-                    >
-                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                            <path
-                                d="M7.1 8.1 4.2 11l2.9 2.9M4.5 11h15m-2.6 2.9L19.8 11l-2.9-2.9"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                                onKeyDown={handleSourceInputKeyDown}
+                                required
                             />
-                        </svg>
-                    </button>
-                    <div className="position-relative search-inline-destination" ref={destinationRef}>
-                        <label className="form-label">Destination Station</label>
 
-                        <input
-                            type="text"
-                            className="form-control"
-                            value={form.destinationStationName}
-                            placeholder="Type destination station"
+                            {showSourceDropdown && sourceSuggestions.length > 0 && (
+                                <ul
+                                    className="dropdown-menu show w-100"
+                                    style={{
+                                        maxHeight: '220px',
+                                        overflowY: 'auto',
+                                        overflowX: 'hidden'
+                                    }}
+                                >
+                                    {sourceSuggestions.map((station, index) => {
+                                        const isDisabled = isSourceSuggestionDisabled(station);
+
+                                        return (
+                                            <li key={station.id}>
+                                                <button
+                                                    type="button"
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === sourceHighlightedIndex ? ' active' : ''}`}
+                                                    disabled={isDisabled}
+                                                    style={{
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        maxWidth: '100%',
+                                                        opacity: isDisabled ? 0.6 : 1,
+                                                        cursor: isDisabled ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setSourceHighlightedIndex(index);
+                                                        }
+                                                    }}
+                                                    onClick={() => {
+                                                        if (isDisabled) return;
+                                                        setForm({ ...form, sourceStationName: station.name });
+                                                        hideSearchHintMessages();
+                                                        setShowSourceDropdown(false);
+                                                        setSourceHighlightedIndex(-1);
+                                                    }}
+                                                >
+                                                    {station.name} ({station.code})
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="btn swap-mid-btn premium-swap-btn"
+                            onClick={handleSwapStations}
+                            aria-label="Swap source and destination stations"
+                            title="Swap source and destination"
+                        >
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                                <path
+                                    d="M4 8h12m0 0-3-3m3 3-3 3M20 16H8m0 0 3-3m-3 3 3 3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </button>
+
+                        <div className="position-relative search-inline-destination search-field-shell" ref={destinationRef}>
+                            <label className="form-label premium-field-label">Destination Station</label>
+
+                            <input
+                                type="text"
+                                className="form-control premium-input"
+                                value={form.destinationStationName}
+                                placeholder="Type destination station"
                             onFocus={() => {
                                 setShowDestDropdown(true);
                                 setDestHighlightedIndex(-1);
+                                hideSearchHintMessages();
                                 searchStations(form.destinationStationName, setDestSuggestions);
                             }}
                             onChange={(e) => {
@@ -518,65 +573,73 @@ export default function SearchTrains() {
                                 setForm({ ...form, destinationStationName: value });
                                 setShowDestDropdown(true);
                                 setDestHighlightedIndex(-1);
+                                hideSearchHintMessages();
                                 searchStations(value, setDestSuggestions);
                             }}
-                            onKeyDown={handleDestinationInputKeyDown}
-                            required
-                        />
+                                onKeyDown={handleDestinationInputKeyDown}
+                                required
+                            />
 
-                        {showDestDropdown && destSuggestions.length > 0 && (
-                            <ul
-                                className="dropdown-menu show w-100"
-                                style={{
-                                    maxHeight: '220px',
-                                    overflowY: 'auto',
-                                    overflowX: 'hidden'
-                                }}
-                            >
-                                {destSuggestions.map((station, index) => {
-                                    const isDisabled = isDestinationSuggestionDisabled(station);
+                            {showDestDropdown && destSuggestions.length > 0 && (
+                                <ul
+                                    className="dropdown-menu show w-100"
+                                    style={{
+                                        maxHeight: '220px',
+                                        overflowY: 'auto',
+                                        overflowX: 'hidden'
+                                    }}
+                                >
+                                    {destSuggestions.map((station, index) => {
+                                        const isDisabled = isDestinationSuggestionDisabled(station);
 
-                                    return (
-                                        <li key={station.id}>
-                                        <button
-                                            type="button"
-                                            className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === destHighlightedIndex ? ' active' : ''}`}
-                                            disabled={isDisabled}
-                                            style={{
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                maxWidth: '100%',
-                                                opacity: isDisabled ? 0.6 : 1,
-                                                cursor: isDisabled ? 'not-allowed' : 'pointer'
-                                            }}
-                                            onMouseEnter={() => {
-                                                if (!isDisabled) {
-                                                    setDestHighlightedIndex(index);
-                                                }
-                                            }}
-                                            onClick={() => {
-                                                if (isDisabled) return;
-                                                setForm({ ...form, destinationStationName: station.name });
-                                                setShowDestDropdown(false);
-                                                setDestHighlightedIndex(-1);
-                                            }}
-                                        >
-                                            {station.name} ({station.code})
-                                        </button>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        )}
+                                        return (
+                                            <li key={station.id}>
+                                                <button
+                                                    type="button"
+                                                    className={`dropdown-item text-truncate${isDisabled ? ' disabled' : ''}${!isDisabled && index === destHighlightedIndex ? ' active' : ''}`}
+                                                    disabled={isDisabled}
+                                                    style={{
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        maxWidth: '100%',
+                                                        opacity: isDisabled ? 0.6 : 1,
+                                                        cursor: isDisabled ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                    onMouseEnter={() => {
+                                                        if (!isDisabled) {
+                                                            setDestHighlightedIndex(index);
+                                                        }
+                                                    }}
+                                                    onClick={() => {
+                                                        if (isDisabled) return;
+                                                        setForm({ ...form, destinationStationName: station.name });
+                                                        hideSearchHintMessages();
+                                                        setShowDestDropdown(false);
+                                                        setDestHighlightedIndex(-1);
+                                                    }}
+                                                >
+                                                    {station.name} ({station.code})
+                                                </button>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
                     </div>
-                    </div>
-                    <div className="search-inline-date">
-                        <label className="form-label">Travel Date</label>
+
+                    <div className="search-inline-date search-field-shell">
+                        <label className="form-label premium-field-label">Travel Date</label>
                         <DatePicker
                             selected={form.travelDate}
                             onChange={handleDateChange}
-                            className="form-control w-100"
+                            onCalendarOpen={() => {
+                                setShowTravelDatePopup(true);
+                                hideSearchHintMessages();
+                            }}
+                            onCalendarClose={() => setShowTravelDatePopup(false)}
+                            className="form-control w-100 premium-input"
                             wrapperClassName="w-100"
                             dateFormat="yyyy-MM-dd"
                             placeholderText="Select a date"
@@ -584,56 +647,86 @@ export default function SearchTrains() {
                             required
                         />
                     </div>
+
                     <div className="d-flex align-items-end search-inline-action">
-                        <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-                            {loading ? 'Searching...' : 'Search'}
+                        <button type="submit" className="btn btn-primary w-100 premium-search-btn" disabled={loading}>
+                            {loading ? 'Searching...' : 'Search Trains'}
                         </button>
                     </div>
                 </form>
-                {error && <div className="alert alert-danger text-center">{error}</div>}
-                {results.length > 0 && (
-                    <div className="table-responsive mt-4 card p-0 overflow-hidden">
-                        <table className="table table-bordered align-middle text-center">
-                            <thead className="table-light">
-                                <tr>
-                                    <th>Train Number</th>
-                                    <th>Train Name</th>
-                                    <th>Source (Departure)</th>
-                                    <th>Destination (Arrival)</th>
-                                    <th>Seats Remaining</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {results.map(train => (
-                                    <tr key={train.trainId}>
-                                        <td>{train.trainNumber}</td>
-                                        <td>{train.trainName}</td>
-                                        <td>
-                                            {train.sourceStation}
-                                            <br />
-                                            <small className="text-muted">
-                                                {formatDateTime(train.departureDateTime ?? train.departureTime)}
-                                            </small>
-                                        </td>
-                                        <td>
-                                            {train.destinationStation}
-                                            <br />
-                                            <small className="text-muted">
-                                                {formatDateTime(train.arrivalDateTime ?? train.arrivalTime)}
-                                            </small>
-                                        </td>
-                                        <td>{train.seatsRemaining}</td>
-                                        <td>
-                                            {(() => {
-                                                const isBooked = bookedTrainNumbersForDate.includes(train.trainNumber);
-                                                const cannotBook =
-                                                    isBooked || !isLoggedInUser || train.seatsRemaining <= 0;
-                                                const disabledMessage = !user || !isLoggedInUser
-                                                    ? bookingLoginMessage
-                                                    : (isBooked ? 'Already booked for selected date' : (train.seatsRemaining <= 0 ? 'No seats available' : ''));
 
-                                                return (
+                {error && <div className="alert alert-danger text-center mt-3">{error}</div>}
+
+                {!loading && showIntroMessage && !hasSearched && !error && results.length === 0 && (
+                    <div className={`card p-3 p-md-4 mt-3 search-empty-card${isSearchPopupOpen ? ' search-empty-card-below-popup' : ''}`}>
+                        <h6 className="mb-2">Start by choosing your route and travel date.</h6>
+                        <p className="mb-0 text-muted">
+                            You can search trains without login, and sign in only when you are ready to book.
+                        </p>
+                    </div>
+                )}
+
+                {!loading && showNoResultsMessage && results.length === 0 && !error && (
+                    <div className={`card p-3 p-md-4 mt-3 search-empty-card${isSearchPopupOpen ? ' search-empty-card-below-popup' : ''}`}>
+                        <h6 className="mb-2">No trains found for this route.</h6>
+                        <p className="mb-0 text-muted">Try swapping stations or selecting a different travel date.</p>
+                    </div>
+                )}
+
+                {results.length > 0 && (
+                    <section className="search-results-zone">
+                        <div className="search-results-head">
+                            <h5 className="mb-0">Available Trains</h5>
+                            <span>{results.length} options found</span>
+                        </div>
+
+                        <div className="search-results-grid">
+                            {results.map((train) => {
+                                const isBooked = bookedTrainNumbersForDate.includes(train.trainNumber);
+                                const noSeats = Number(train.seatsRemaining) <= 0;
+                                const cannotBook = isBooked || !isLoggedInUser || noSeats;
+                                const disabledMessage = !user || !isLoggedInUser
+                                    ? bookingLoginMessage
+                                    : (isBooked ? 'Already booked for selected date' : (noSeats ? 'No seats available' : ''));
+                                const seatStatusClass = noSeats
+                                    ? 'seat-pill seat-pill-danger'
+                                    : (Number(train.seatsRemaining) <= 20 ? 'seat-pill seat-pill-warning' : 'seat-pill seat-pill-success');
+
+                                return (
+                                    <article className="card p-3 p-md-4 search-train-card" key={train.trainId}>
+                                        <div className="search-train-card-top">
+                                            <div>
+                                                <p className="mb-1 search-train-number">{train.trainNumber}</p>
+                                                <h6 className="mb-0">{train.trainName}</h6>
+                                            </div>
+                                            <span className={seatStatusClass}>{train.seatsRemaining} seats left</span>
+                                        </div>
+
+                                        <div className="search-train-route">
+                                            <div className="search-train-point">
+                                                <span className="search-train-point-label">From</span>
+                                                <strong>{train.sourceStation}</strong>
+                                                <small>{formatDateTime(train.departureDateTime ?? train.departureTime)}</small>
+                                            </div>
+
+                                            <div className="search-train-track" aria-hidden="true">
+                                                <span className="search-train-track-line"></span>
+                                                <span className="search-train-track-marker"></span>
+                                            </div>
+
+                                            <div className="search-train-point search-train-point-destination">
+                                                <span className="search-train-point-label">To</span>
+                                                <strong>{train.destinationStation}</strong>
+                                                <small>{formatDateTime(train.arrivalDateTime ?? train.arrivalTime)}</small>
+                                            </div>
+                                        </div>
+
+                                        <div className="search-train-card-actions">
+                                            <small className="text-muted">
+                                                {isBooked
+                                                    ? 'Already booked for selected date'
+                                                    : (noSeats ? 'Currently sold out' : 'Instant confirmation available')}
+                                            </small>
                                             <span
                                                 title={disabledMessage}
                                                 style={{ display: 'inline-block' }}
@@ -646,15 +739,14 @@ export default function SearchTrains() {
                                                     {isBooked ? 'Booked' : 'Book Now'}
                                                 </button>
                                             </span>
-                                                );
-                                            })()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    </section>
                 )}
+
                 {showBookingForm && selectedTrain && (
                     <div
                         className="modal fade show search-booking-modal"
@@ -663,7 +755,7 @@ export default function SearchTrains() {
                         aria-modal="true"
                     >
                         <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable search-booking-dialog">
-                            <div className="modal-content">
+                            <div className="modal-content search-booking-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">Book Train</h5>
                                     <button
@@ -674,16 +766,18 @@ export default function SearchTrains() {
                                 </div>
 
                                 <div className="modal-body">
-                                    <p><strong>{selectedTrain.trainName}</strong></p>
-                                    <p>
-                                        {selectedTrain.sourceStation} → {selectedTrain.destinationStation}
-                                    </p>
+                                    <div className="search-booking-summary">
+                                        <p className="mb-1"><strong>{selectedTrain.trainName}</strong> ({selectedTrain.trainNumber})</p>
+                                        <p className="mb-0">
+                                            {selectedTrain.sourceStation} to {selectedTrain.destinationStation}
+                                        </p>
+                                    </div>
 
-                                    <div className="mb-3">
+                                    <div className="mt-3">
                                         <label className="form-label">Number of Seats</label>
                                         <input
                                             type="number"
-                                            className="form-control"
+                                            className="form-control premium-input"
                                             min="1"
                                             max={getSeatUpperBound()}
                                             value={seatsBooked}

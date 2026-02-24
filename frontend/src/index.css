@@ -433,20 +433,129 @@ label {
 }
 
 .search-form .btn {
-  min-height: 42px;
+  min-height: 46px;
+}
+
+.premium-search-shell {
+  align-items: flex-start;
+  padding-top: 98px;
+  padding-bottom: 38px;
+}
+
+.premium-search-inner {
+  width: min(1360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.search-hero-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border-color: rgba(7, 52, 96, 0.2);
+  background:
+    radial-gradient(620px 280px at 100% 0%, rgba(242, 163, 63, 0.28), transparent 66%),
+    linear-gradient(122deg, rgba(7, 52, 96, 0.94), rgba(13, 81, 140, 0.9));
+  color: #ecf4ff;
+}
+
+.search-hero-card::before {
+  content: '';
+  position: absolute;
+  right: -68px;
+  bottom: -78px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.search-hero-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  align-items: center;
+}
+
+.search-hero-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.36rem 0.66rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  color: #f5f9ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.82rem;
+}
+
+.search-hero-title {
+  font-size: clamp(1.4rem, 2.2vw, 2.15rem);
+  color: #f8fbff;
+  letter-spacing: 0.015em;
+}
+
+.search-hero-copy {
+  max-width: 64ch;
+  color: rgba(234, 245, 255, 0.92);
+  font-size: 0.97rem;
+}
+
+.search-hero-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.search-metric {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 14px;
+  padding: 0.72rem 0.84rem;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(7px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-metric-value {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.search-metric-label {
+  color: rgba(231, 241, 255, 0.8);
+  font-size: 0.69rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.premium-search-form {
+  border-radius: 22px;
+  border-color: rgba(16, 35, 58, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 251, 255, 0.95));
+  box-shadow: 0 18px 34px rgba(9, 34, 61, 0.14);
 }
 
 .search-form-inline {
   display: grid;
-  grid-template-columns: minmax(420px, 1fr) 200px 140px;
+  grid-template-columns: minmax(530px, 1.5fr) minmax(210px, 0.65fr) minmax(170px, 0.35fr);
   align-items: end;
-  gap: 12px;
+  gap: 14px;
 }
 
 .search-inline-route-group {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+  gap: 12px;
   position: relative;
   align-items: end;
   min-width: 0;
@@ -457,13 +566,39 @@ label {
   min-width: 0;
 }
 
+.search-field-shell {
+  min-width: 0;
+}
+
+.premium-field-label {
+  margin-bottom: 0.42rem;
+  color: #4d6583;
+  font-size: 0.71rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.premium-input {
+  min-height: 46px;
+  border-radius: 13px;
+  border-color: rgba(16, 35, 58, 0.18);
+  background: rgba(255, 255, 255, 0.98);
+}
+
 .search-inline-date .react-datepicker-wrapper,
 .search-inline-date .form-control {
   width: 100%;
 }
 
 .search-inline-action .btn {
-  min-width: 130px;
+  min-width: 150px;
+}
+
+.premium-search-btn {
+  min-height: 46px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
 }
 
 .swap-mid-btn {
@@ -471,9 +606,9 @@ label {
   transform: none;
   justify-self: center;
   align-self: end;
-  margin-bottom: 2px;
-  width: 38px;
-  height: 38px;
+  margin-bottom: 1px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   padding: 0;
   display: inline-flex;
@@ -483,7 +618,7 @@ label {
   background: linear-gradient(135deg, rgba(11, 77, 143, 0.12), rgba(242, 163, 63, 0.16));
   color: var(--stb-primary);
   box-shadow: 0 6px 14px rgba(10, 42, 73, 0.12);
-  min-height: 38px !important;
+  min-height: 42px !important;
 }
 
 .swap-mid-btn:hover,
@@ -492,6 +627,178 @@ label {
   border-color: rgba(11, 77, 143, 0.42);
   background: linear-gradient(135deg, rgba(11, 77, 143, 0.2), rgba(242, 163, 63, 0.24));
   box-shadow: 0 10px 16px rgba(10, 42, 73, 0.18);
+}
+
+.search-empty-card {
+  border-style: dashed;
+  border-width: 1.5px;
+  border-color: rgba(10, 53, 94, 0.22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(246, 251, 255, 0.94));
+}
+
+.search-empty-card-below-popup {
+  margin-top: clamp(240px, 30vh, 320px) !important;
+}
+
+.search-results-zone {
+  margin-top: 4px;
+}
+
+.search-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.search-results-head h5 {
+  margin: 0;
+}
+
+.search-results-head span {
+  color: #4e6380;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 14px;
+}
+
+.search-train-card {
+  border-radius: 20px;
+  border-color: rgba(7, 52, 96, 0.18);
+  background:
+    radial-gradient(300px 110px at 100% -20%, rgba(242, 163, 63, 0.2), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(246, 251, 255, 0.94));
+}
+
+.search-train-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.search-train-number {
+  color: #5a6f89;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.seat-pill {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.34rem 0.62rem;
+  white-space: nowrap;
+}
+
+.seat-pill-success {
+  color: #146249;
+  background: rgba(31, 140, 103, 0.15);
+  border: 1px solid rgba(31, 140, 103, 0.3);
+}
+
+.seat-pill-warning {
+  color: #8d5d17;
+  background: rgba(242, 163, 63, 0.17);
+  border: 1px solid rgba(242, 163, 63, 0.34);
+}
+
+.seat-pill-danger {
+  color: #8d2c2c;
+  background: rgba(196, 69, 69, 0.15);
+  border: 1px solid rgba(196, 69, 69, 0.3);
+}
+
+.search-train-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid rgba(10, 52, 93, 0.12);
+  border-bottom: 1px solid rgba(10, 52, 93, 0.12);
+  padding: 11px 0;
+}
+
+.search-train-point {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.search-train-point strong {
+  color: var(--stb-text);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-train-point small {
+  color: #5a6d84;
+  font-size: 0.77rem;
+}
+
+.search-train-point-label {
+  color: #6b819a;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.search-train-point-destination {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.search-train-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-train-track-line {
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(9, 66, 120, 0.25), rgba(9, 66, 120, 0.76), rgba(242, 163, 63, 0.84));
+}
+
+.search-train-track-marker {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(9, 66, 120, 0.75);
+  background: linear-gradient(140deg, #f8fcff, rgba(240, 249, 255, 0.95));
+  box-shadow: 0 6px 14px rgba(11, 54, 95, 0.2);
+}
+
+.search-train-card-actions {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.search-train-card-actions .btn {
+  min-width: 100px;
 }
 
 .search-booking-modal {
@@ -510,6 +817,17 @@ label {
 
 .search-booking-modal .modal-content {
   max-height: calc(100vh - 48px);
+}
+
+.search-booking-content {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 252, 255, 0.97));
+}
+
+.search-booking-summary {
+  border: 1px solid rgba(10, 52, 93, 0.16);
+  border-radius: 14px;
+  padding: 0.72rem 0.86rem;
+  background: rgba(236, 245, 255, 0.72);
 }
 
 @keyframes railFade {
@@ -532,6 +850,17 @@ label {
   }
 }
 
+@media (max-width: 1199.98px) {
+  .search-hero-content {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .search-hero-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 991.98px) {
   .app-navbar .navbar-collapse {
     max-height: calc(100vh - 92px);
@@ -540,6 +869,22 @@ label {
 
   .app-navbar .nav-link {
     width: 100%;
+  }
+
+  .search-form-inline {
+    grid-template-columns: 1fr;
+  }
+
+  .search-inline-route-group {
+    grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+  }
+
+  .search-inline-action .btn {
+    min-width: 100%;
+  }
+
+  .search-empty-card-below-popup {
+    margin-top: clamp(210px, 26vh, 280px) !important;
   }
 }
 
@@ -556,12 +901,50 @@ label {
 
   .search-form-inline {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 11px;
   }
 
   .search-inline-route-group {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .search-hero-content,
+  .search-hero-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .search-results-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .search-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-train-route {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .search-train-track {
+    display: none;
+  }
+
+  .search-train-point-destination {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .search-train-card-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .search-empty-card-below-popup {
+    margin-top: clamp(170px, 22vh, 230px) !important;
   }
 
   .swap-mid-btn {
